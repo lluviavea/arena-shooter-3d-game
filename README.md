@@ -1,4 +1,4 @@
-# Instant Arena Shooter
+# Arena Shooter
 
 3D first-person arena shooter in the browser. Conquer 5 difficulty tiers with escalating enemies, dynamic lighting, and procedural soundtracks.
 
@@ -14,7 +14,7 @@
 
 ### Victory Screen
 
-![Victory](screenshots/victory.png)![alt text](46DEE807-0FFF-47AC-B22E-8FDC49D7D92B_1_201_a.jpeg)
+![Victory](screenshots/victory.png)
 
 ## Features
 
