@@ -31,9 +31,22 @@ export const HEALTH_PICKUP_AMOUNT = 25;
 export const HEALTH_PICKUP_RADIUS = 0.6;
 export const HEALTH_PICKUP_LIFETIME = 8;
 
-// Difficulty scaling
+// Difficulty system
+export const MAX_TIER = 5;
 export const KILLS_PER_TIER = 3;
 export const DIFFICULTY_SCALE_PER_TIER = 0.2;
+export const ENEMIES_PER_TIER = [1, 2, 3, 4, 5];
+
+export const TIER_NAMES = [
+  "Training",
+  "Patrol",
+  "Assault",
+  "Warzone",
+  "Annihilation",
+];
 
 // Respawn
 export const ENEMY_RESPAWN_DELAY = 2.5;
+
+// Win condition
+export const TIER_CLEAR_KILLS = KILLS_PER_TIER;

@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import { createArena, setupLighting } from "./world.js";
+import { createArena, setupLighting, updateLighting } from "./world.js";
 import { createEnemyMesh, createGunModel, createHealthPickupMesh } from "./models.js";
 import { Controls } from "./controls.js";
 import { UI } from "./ui.js";
 import { BulletManager } from "./bullets.js";
+import { AudioManager } from "./audio.js";
 import { Player, Enemy } from "./entities.js";
 import {
   HEALTH_PICKUP_AMOUNT,
@@ -13,6 +14,8 @@ import {
   KILLS_PER_TIER,
   PLAYER_MAX_HEALTH,
   ENEMY_MAX_HEALTH,
+  MAX_TIER,
+  ENEMIES_PER_TIER,
 } from "./constants.js";
 
 export class Game {
@@ -28,7 +31,7 @@ export class Game {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
-    setupLighting(this.scene);
+    this.lights = setupLighting(this.scene);
 
     this.camera = new THREE.PerspectiveCamera(
       75,
@@ -40,22 +43,26 @@ export class Game {
     this.world = createArena(this.scene);
     this.controls = new Controls(canvas);
     this.ui = new UI();
+    this.audio = new AudioManager();
     this.player = new Player(this.camera);
     this.bulletManager = new BulletManager(this.scene);
 
-    const enemyMesh = createEnemyMesh();
-    this.scene.add(enemyMesh);
-    this.enemy = new Enemy(enemyMesh);
-
+    this.enemies = [];
+    this.enemyPool = [];
     this.gun = createGunModel();
     this.camera.add(this.gun);
     this.scene.add(this.camera);
 
     this.healthPickups = [];
     this.kills = 0;
+    this.tierKills = 0;
     this.difficultyTier = 1;
     this.respawnTimer = 0;
-    this.enemyAlive = true;
+    this.gameWon = false;
+
+    // Win animation state
+    this.winAnimTime = 0;
+    this.winParticles = [];
 
     this.bindEvents();
     this.onResize();
@@ -75,54 +82,183 @@ export class Game {
   }
 
   start() {
+    this.audio.init();
+    this.audio.resume();
     this.reset();
     this.running = true;
     this.controls.requestLock();
     this.ui.showHUD();
     this.clock.start();
+    this.audio.startMusic(this.difficultyTier);
     this.loop();
   }
 
   reset() {
     this.player.reset();
-    this.enemy.reset();
     this.bulletManager.clear();
     this.clearHealthPickups();
+    this.clearWinParticles();
+
+    // Clear all enemies
+    for (const enemy of this.enemies) {
+      this.scene.remove(enemy.mesh);
+    }
+    this.enemies = [];
+    this.enemyPool = [];
+
     this.kills = 0;
+    this.tierKills = 0;
     this.difficultyTier = 1;
     this.respawnTimer = 0;
-    this.enemyAlive = true;
-    this.enemy.mesh.visible = true;
+    this.gameWon = false;
+    this.winAnimTime = 0;
+
+    this.spawnTierEnemies();
+    this.updateLightingForTier();
+    this.audio.startMusic(this.difficultyTier);
     this.ui.updateDifficulty(this.difficultyTier);
     this.ui.updateKills(this.kills);
     this.updateHud();
   }
 
+  spawnTierEnemies() {
+    const count = ENEMIES_PER_TIER[this.difficultyTier - 1] || 1;
+    const angleStep = (Math.PI * 2) / count;
+
+    for (let i = 0; i < count; i++) {
+      const mesh = createEnemyMesh(this.difficultyTier);
+      this.scene.add(mesh);
+      const enemy = new Enemy(mesh, this.difficultyTier);
+
+      const angle = angleStep * i + Math.random() * 0.5;
+      const dist = 10 + Math.random() * 5;
+      const sx = Math.sin(angle) * dist;
+      const sz = Math.cos(angle) * dist;
+
+      enemy.respawn(this.difficultyTier, sx, sz);
+      this.enemies.push(enemy);
+    }
+  }
+
+  updateLightingForTier() {
+    updateLighting(this.lights, this.difficultyTier);
+  }
+
   endGame() {
     this.running = false;
+    this.audio.stopMusic();
+    this.audio.playDeath();
     document.exitPointerLock();
     this.ui.showDeathScreen(() => this.start());
   }
 
+  winGame() {
+    this.gameWon = true;
+    this.winAnimTime = 0;
+    this.audio.playVictory();
+    this.spawnWinParticles();
+
+    setTimeout(() => {
+      this.running = false;
+      this.audio.stopMusic();
+      document.exitPointerLock();
+      this.ui.showWinScreen(() => this.start());
+    }, 4000);
+  }
+
+  spawnWinParticles() {
+    for (let i = 0; i < 80; i++) {
+      const geo = new THREE.SphereGeometry(0.15, 8, 8);
+      const hue = Math.random();
+      const color = new THREE.Color().setHSL(hue, 0.9, 0.6);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 1.5,
+        transparent: true,
+        opacity: 1,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        (Math.random() - 0.5) * 30,
+        1 + Math.random() * 2,
+        (Math.random() - 0.5) * 30,
+      );
+      this.scene.add(mesh);
+      this.winParticles.push({
+        mesh,
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 8,
+          4 + Math.random() * 8,
+          (Math.random() - 0.5) * 8,
+        ),
+        life: 2 + Math.random() * 2,
+      });
+    }
+  }
+
+  clearWinParticles() {
+    for (const p of this.winParticles) {
+      this.scene.remove(p.mesh);
+    }
+    this.winParticles = [];
+  }
+
   updateHud() {
     this.ui.updatePlayerHealth(this.player.health / PLAYER_MAX_HEALTH);
-    if (this.enemyAlive) {
-      this.ui.updateEnemyHealth(this.enemy.health / this.enemy.scaledStats.maxHealth);
+
+    const aliveEnemies = this.enemies.filter((e) => e.isAlive);
+    if (aliveEnemies.length > 0) {
+      const maxHp = aliveEnemies[0].scaledStats.maxHealth;
+      const avgHealth = aliveEnemies.reduce((sum, e) => sum + e.health, 0) / aliveEnemies.length;
+      this.ui.updateEnemyHealth(avgHealth / maxHp);
     } else {
       this.ui.updateEnemyHealth(0);
     }
+
     this.ui.updateDifficulty(this.difficultyTier);
     this.ui.updateKills(this.kills);
+    this.ui.updateEnemyCount(aliveEnemies.length, ENEMIES_PER_TIER[this.difficultyTier - 1]);
+    this.ui.updateTierProgress(this.tierKills);
   }
 
-  onEnemyKilled() {
+  onEnemyKilled(killedEnemy) {
     this.kills++;
-    this.difficultyTier = 1 + Math.floor(this.kills / KILLS_PER_TIER);
-    this.enemyAlive = false;
-    this.enemy.mesh.visible = false;
-    this.respawnTimer = ENEMY_RESPAWN_DELAY;
+    this.tierKills++;
 
-    this.spawnHealthPickup(this.enemy.x, this.enemy.z);
+    // Remove the dead enemy from the scene
+    this.scene.remove(killedEnemy.mesh);
+    this.enemies = this.enemies.filter((e) => e !== killedEnemy);
+
+    this.spawnHealthPickup(killedEnemy.x, killedEnemy.z);
+
+    // Check if tier is cleared
+    if (this.tierKills >= KILLS_PER_TIER) {
+      if (this.difficultyTier >= MAX_TIER) {
+        this.updateHud();
+        this.winGame();
+        return;
+      }
+
+      // Advance to next tier
+      this.difficultyTier++;
+      this.tierKills = 0;
+      this.audio.startMusic(this.difficultyTier);
+      this.updateLightingForTier();
+
+      // Clear remaining enemies from old tier
+      for (const e of this.enemies) {
+        this.scene.remove(e.mesh);
+      }
+      this.enemies = [];
+
+      // Spawn new tier enemies after a short delay
+      this.respawnTimer = 1.5;
+    } else {
+      // Spawn a replacement enemy for the same tier
+      this.respawnTimer = ENEMY_RESPAWN_DELAY;
+    }
+
     this.updateHud();
   }
 
@@ -169,11 +305,32 @@ export class Game {
         this.player.heal(HEALTH_PICKUP_AMOUNT);
         this.scene.remove(pickup.mesh);
         pickup.dead = true;
+        this.audio.playPickup();
         this.updateHud();
       }
     }
 
     this.healthPickups = this.healthPickups.filter((p) => !p.dead);
+  }
+
+  updateWinParticles(dt) {
+    for (const p of this.winParticles) {
+      p.velocity.y -= 9.8 * dt;
+      p.mesh.position.addScaledVector(p.velocity, dt);
+      p.life -= dt;
+      p.mesh.material.opacity = Math.max(0, p.life / 2);
+      if (p.mesh.position.y < -1) {
+        p.life = 0;
+      }
+    }
+
+    this.winParticles = this.winParticles.filter((p) => {
+      if (p.life <= 0) {
+        this.scene.remove(p.mesh);
+        return false;
+      }
+      return true;
+    });
   }
 
   loop() {
@@ -183,24 +340,60 @@ export class Game {
 
     this.player.update(dt, this.world, this.controls);
 
+    if (this.gameWon) {
+      this.winAnimTime += dt;
+
+      // Camera zoom out
+      const t = Math.min(this.winAnimTime / 2, 1);
+      const camDist = 12 + t * 20;
+      const camHeight = 1.6 + t * 8;
+      this.camera.position.set(
+        this.player.x,
+        camHeight,
+        this.player.z + camDist,
+      );
+      this.camera.lookAt(this.player.x, 1.6, this.player.z);
+
+      this.updateWinParticles(dt);
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(() => this.loop());
+      return;
+    }
+
+    // Shooting
     if (this.controls.keys.shoot) {
-      if (this.enemyAlive) {
-        const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
-        if (result === "hit") {
-          if (!this.enemy.isAlive) this.onEnemyKilled();
-          this.updateHud();
+      const aliveEnemies = this.enemies.filter((e) => e.isAlive);
+      if (aliveEnemies.length > 0) {
+        const result = this.player.tryShoot(this.bulletManager, this.world, aliveEnemies);
+        if (result) {
+          this.audio.playGunshot();
+          if (result.hit) {
+            this.audio.playHit();
+            if (result.killed) {
+              this.onEnemyKilled(result.enemy);
+            }
+            this.updateHud();
+          }
         }
       }
     }
 
-    if (this.enemyAlive) {
-      this.enemy.update(dt, this.world, this.player, this.bulletManager);
-    } else {
+    // Enemy updates
+    for (const enemy of this.enemies) {
+      if (enemy.isAlive) {
+        enemy.update(dt, this.world, this.player, this.bulletManager);
+      }
+    }
+
+    // Respawn logic
+    if (this.enemies.length < (ENEMIES_PER_TIER[this.difficultyTier - 1] || 1)) {
       this.respawnTimer -= dt;
       if (this.respawnTimer <= 0) {
-        this.enemy.respawn(this.difficultyTier);
-        this.enemy.mesh.visible = true;
-        this.enemyAlive = true;
+        const mesh = createEnemyMesh(this.difficultyTier);
+        this.scene.add(mesh);
+        const enemy = new Enemy(mesh, this.difficultyTier);
+        enemy.respawn(this.difficultyTier);
+        this.enemies.push(enemy);
         this.updateHud();
       }
     }
@@ -209,15 +402,17 @@ export class Game {
       obstacles: this.world.obstacles,
       half: this.world.half,
       player: this.player,
-      enemy: this.enemy,
+      enemies: this.enemies,
       onPlayerHit: (dmg) => {
         this.player.takeDamage(dmg);
         this.updateHud();
       },
-      onEnemyHit: (dmg) => {
-        if (this.enemyAlive) {
-          this.enemy.takeDamage(dmg);
-          if (!this.enemy.isAlive) this.onEnemyKilled();
+      onEnemyHit: (dmg, enemy) => {
+        if (enemy.isAlive) {
+          enemy.takeDamage(dmg);
+          if (!enemy.isAlive) {
+            this.onEnemyKilled(enemy);
+          }
           this.updateHud();
         }
       },

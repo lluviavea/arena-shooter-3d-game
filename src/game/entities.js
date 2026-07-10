@@ -78,7 +78,7 @@ export class Player {
     if (this.fireCooldown > 0) this.fireCooldown -= dt;
   }
 
-  tryShoot(bulletManager, world, enemy) {
+  tryShoot(bulletManager, world, enemies) {
     if (this.fireCooldown > 0) return false;
     this.fireCooldown = PLAYER_FIRE_COOLDOWN;
 
@@ -89,12 +89,15 @@ export class Player {
 
     bulletManager.spawnVisualTracer(origin, direction);
 
-    if (playerHitscan(origin, direction, enemy, world.obstacles)) {
-      enemy.takeDamage(PLAYER_DAMAGE);
-      return "hit";
+    for (const enemy of enemies) {
+      if (!enemy.isAlive) continue;
+      if (playerHitscan(origin, direction, enemy, world.obstacles)) {
+        enemy.takeDamage(PLAYER_DAMAGE);
+        return { hit: true, killed: !enemy.isAlive, enemy };
+      }
     }
 
-    return true;
+    return { hit: false };
   }
 
   takeDamage(amount) {
@@ -111,18 +114,18 @@ export class Player {
 }
 
 export class Enemy {
-  constructor(mesh) {
+  constructor(mesh, tier = 1) {
     this.mesh = mesh;
     this.x = 0;
     this.z = -12;
     this.rotationY = 0;
-    this.health = ENEMY_MAX_HEALTH;
+    this.difficultyTier = tier;
+    this.health = this.scaledStats.maxHealth;
     this.fireCooldown = 1.2;
     this.wanderAngle = Math.random() * Math.PI * 2;
     this.wanderTimer = 0;
     this.time = 0;
     this.isWalking = false;
-    this.difficultyTier = 1;
 
     const { gunPivot } = mesh.userData;
     this.gunPivot = gunPivot;
@@ -137,6 +140,9 @@ export class Enemy {
       moveSpeed: ENEMY_MOVE_SPEED * scale,
       fireCooldown: ENEMY_FIRE_COOLDOWN / scale,
       damage: Math.round(ENEMY_DAMAGE * scale),
+      aggroRange: ENEMY_AGGRO_RANGE * (1 + (this.difficultyTier - 1) * 0.15),
+      fireRange: ENEMY_FIRE_RANGE * (1 + (this.difficultyTier - 1) * 0.1),
+      closeRange: ENEMY_CLOSE_RANGE * (1 - (this.difficultyTier - 1) * 0.05),
     };
   }
 
@@ -154,7 +160,7 @@ export class Enemy {
     this.syncMesh();
   }
 
-  respawn(tier) {
+  respawn(tier, spawnX, spawnZ) {
     this.difficultyTier = tier;
     this.health = this.scaledStats.maxHealth;
     this.fireCooldown = 1.2;
@@ -163,11 +169,17 @@ export class Enemy {
     this.time = 0;
     this.isWalking = false;
 
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 10 + Math.random() * 5;
-    this.x = Math.sin(angle) * dist;
-    this.z = Math.cos(angle) * dist;
+    if (spawnX !== undefined && spawnZ !== undefined) {
+      this.x = spawnX;
+      this.z = spawnZ;
+    } else {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * 5;
+      this.x = Math.sin(angle) * dist;
+      this.z = Math.cos(angle) * dist;
+    }
 
+    this.mesh.visible = true;
     this.syncMesh();
   }
 
@@ -201,12 +213,12 @@ export class Enemy {
 
     this.isWalking = false;
 
-    if (canSee && dist < ENEMY_AGGRO_RANGE) {
+    if (canSee && dist < stats.aggroRange) {
       const dx = player.x - this.x;
       const dz = player.z - this.z;
       this.rotationY = Math.atan2(dx, dz);
 
-      if (dist > ENEMY_CLOSE_RANGE) {
+      if (dist > stats.closeRange) {
         const moveX = Math.sin(this.rotationY) * stats.moveSpeed * dt;
         const moveZ = Math.cos(this.rotationY) * stats.moveSpeed * dt;
         const resolved = resolveObstacleCollision(
@@ -221,7 +233,7 @@ export class Enemy {
       }
 
       this.fireCooldown -= dt;
-      if (this.fireCooldown <= 0 && dist < ENEMY_FIRE_RANGE) {
+      if (this.fireCooldown <= 0 && dist < stats.fireRange) {
         this.fireCooldown = stats.fireCooldown + Math.random() * 0.4;
 
         const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);

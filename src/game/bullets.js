@@ -131,7 +131,7 @@ export class BulletManager {
   }
 
   update(dt, context) {
-    const { obstacles, half, player, enemy, onPlayerHit, onEnemyHit } = context;
+    const { obstacles, half, player, enemies, onPlayerHit, onEnemyHit } = context;
 
     for (const bullet of this.bullets) {
       if (!bullet.alive) continue;
@@ -172,11 +172,15 @@ export class BulletManager {
           this.remove(bullet);
         }
       } else {
-        const dx = x - enemy.x;
-        const dz = z - enemy.z;
-        if (Math.hypot(dx, dz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
-          onEnemyHit(bullet.damage);
-          this.remove(bullet);
+        for (const enemy of enemies) {
+          if (!enemy.isAlive) continue;
+          const dx = x - enemy.x;
+          const dz = z - enemy.z;
+          if (Math.hypot(dx, dz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
+            onEnemyHit(bullet.damage, enemy);
+            this.remove(bullet);
+            break;
+          }
         }
       }
     }

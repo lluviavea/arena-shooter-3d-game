@@ -23,6 +23,19 @@ export function rightVector(rotationY) {
   return new THREE.Vector3(Math.cos(rotationY), 0, -Math.sin(rotationY));
 }
 
+const TIER_LIGHTING = [
+  // Tier 1: calm blue/green
+  { bg: 0x0b1020, fog: 0x0b1020, ambient: 0x6070a0, rim: 0x44bba4, ambientIntensity: 0.55 },
+  // Tier 2: warm amber
+  { bg: 0x12100a, fog: 0x12100a, ambient: 0x807050, rim: 0xe9a820, ambientIntensity: 0.6 },
+  // Tier 3: orange/red
+  { bg: 0x150a08, fog: 0x150a08, ambient: 0x906040, rim: 0xe85d3a, ambientIntensity: 0.65 },
+  // Tier 4: deep red
+  { bg: 0x180808, fog: 0x180808, ambient: 0xa04040, rim: 0xdc2626, ambientIntensity: 0.7 },
+  // Tier 5: purple/crimson
+  { bg: 0x120515, fog: 0x120515, ambient: 0x9040a0, rim: 0x9333ea, ambientIntensity: 0.75 },
+];
+
 export function createArena(scene) {
   const group = new THREE.Group();
 
@@ -130,10 +143,12 @@ export function resolveObstacleCollision(x, z, obstacles, half) {
 }
 
 export function setupLighting(scene) {
-  scene.background = new THREE.Color(0x0b1020);
-  scene.fog = new THREE.Fog(0x0b1020, 20, 55);
+  const cfg = TIER_LIGHTING[0];
 
-  const ambient = new THREE.AmbientLight(0x6070a0, 0.55);
+  scene.background = new THREE.Color(cfg.bg);
+  scene.fog = new THREE.Fog(cfg.fog, 20, 55);
+
+  const ambient = new THREE.AmbientLight(cfg.ambient, cfg.ambientIntensity);
   scene.add(ambient);
 
   const sun = new THREE.DirectionalLight(0xfff0dd, 1.1);
@@ -148,7 +163,19 @@ export function setupLighting(scene) {
   sun.shadow.camera.bottom = -25;
   scene.add(sun);
 
-  const rim = new THREE.PointLight(0x6366f1, 0.6, 40);
+  const rim = new THREE.PointLight(cfg.rim, 0.6, 40);
   rim.position.set(-10, 6, -10);
   scene.add(rim);
+
+  return { ambient, sun, rim, scene };
+}
+
+export function updateLighting(lights, tier) {
+  const cfg = TIER_LIGHTING[Math.min(tier - 1, TIER_LIGHTING.length - 1)];
+
+  lights.scene.background = new THREE.Color(cfg.bg);
+  lights.scene.fog = new THREE.Fog(cfg.fog, 20, 55);
+  lights.ambient.color = new THREE.Color(cfg.ambient);
+  lights.ambient.intensity = cfg.ambientIntensity;
+  lights.rim.color = new THREE.Color(cfg.rim);
 }

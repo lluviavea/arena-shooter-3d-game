@@ -1,36 +1,70 @@
 import * as THREE from "three";
 
-export function createGunModel() {
-  const gun = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(0.08, 0.08, 0.35),
-    new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 }),
-  );
-  body.position.set(0.22, -0.18, -0.45);
-  gun.add(body);
+const TIER_COLORS = [
+  // Tier 1 - Training: friendly blue/green
+  {
+    body: 0x2d5a8e,
+    accent: 0x44bba4,
+    helmet: 0x1a3a5c,
+    glow: 0x44bba4,
+    gun: 0x44bba4,
+    eyeGlow: 0x44bba4,
+  },
+  // Tier 2 - Patrol: neutral yellow/orange
+  {
+    body: 0x5c4d3c,
+    accent: 0xe9a820,
+    helmet: 0x3d3428,
+    glow: 0xe9a820,
+    gun: 0xe9a820,
+    eyeGlow: 0xe9a820,
+  },
+  // Tier 3 - Assault: warm orange/red
+  {
+    body: 0x6b3030,
+    accent: 0xe85d3a,
+    helmet: 0x4a1f1f,
+    glow: 0xe85d3a,
+    gun: 0xe85d3a,
+    eyeGlow: 0xe85d3a,
+  },
+  // Tier 4 - Warzone: red/dark
+  {
+    body: 0x4a1528,
+    accent: 0xdc2626,
+    helmet: 0x2e0d1a,
+    glow: 0xdc2626,
+    gun: 0xdc2626,
+    eyeGlow: 0xdc2626,
+  },
+  // Tier 5 - Annihilation: purple/crimson, menacing
+  {
+    body: 0x2a0a3e,
+    accent: 0x9333ea,
+    helmet: 0x18062a,
+    glow: 0x9333ea,
+    gun: 0xdc2626,
+    eyeGlow: 0xff0040,
+  },
+];
 
-  const barrel = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.025, 0.025, 0.2, 8),
-    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 }),
-  );
-  barrel.rotation.x = Math.PI / 2;
-  barrel.position.set(0.22, -0.16, -0.62);
-  gun.add(barrel);
-
-  return gun;
+function tierColor(tier) {
+  return TIER_COLORS[Math.min(tier - 1, TIER_COLORS.length - 1)];
 }
 
-export function createEnemyMesh() {
+export function createEnemyMesh(tier = 1) {
+  const colors = tierColor(tier);
   const enemy = new THREE.Group();
-  const darkMetal = { color: 0x1a1a2e, roughness: 0.35, metalness: 0.7 };
+
+  const darkMetal = { color: colors.body, roughness: 0.35, metalness: 0.7 };
   const accentGlow = new THREE.MeshStandardMaterial({
-    color: 0xe63946,
-    emissive: 0xe63946,
+    color: colors.accent,
+    emissive: colors.glow,
     emissiveIntensity: 0.8,
     roughness: 0.3,
     metalness: 0.5,
   });
-  const helmetMat = { color: 0x16213e, roughness: 0.3, metalness: 0.75 };
+  const helmetMat = { color: colors.helmet, roughness: 0.3, metalness: 0.75 };
 
   // TORSO
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.55), new THREE.MeshStandardMaterial(darkMetal));
@@ -54,14 +88,14 @@ export function createEnemyMesh() {
   for (const side of [-1, 1]) {
     const pad = new THREE.Mesh(
       new THREE.BoxGeometry(0.35, 0.18, 0.4),
-      new THREE.MeshStandardMaterial({ ...darkMetal, color: 0x0f3460 }),
+      new THREE.MeshStandardMaterial({ ...darkMetal, color: colors.body }),
     );
     pad.position.set(side * 0.55, 1.95, 0);
     pad.castShadow = true;
     enemy.add(pad);
   }
 
-  // HEAD (Vader-style helmet)
+  // HEAD
   const headPivot = new THREE.Group();
   headPivot.position.set(0, 2.0, 0);
   enemy.add(headPivot);
@@ -76,7 +110,7 @@ export function createEnemyMesh() {
 
   const facePlate = new THREE.Mesh(
     new THREE.BoxGeometry(0.52, 0.35, 0.12),
-    new THREE.MeshStandardMaterial({ ...helmetMat, color: 0x1a1a2e }),
+    new THREE.MeshStandardMaterial({ ...helmetMat, color: colors.body }),
   );
   facePlate.position.set(0, -0.05, 0.22);
   headPivot.add(facePlate);
@@ -112,7 +146,7 @@ export function createEnemyMesh() {
 
   const jaw = new THREE.Mesh(
     new THREE.BoxGeometry(0.32, 0.12, 0.2),
-    new THREE.MeshStandardMaterial({ ...helmetMat, color: 0x0f3460 }),
+    new THREE.MeshStandardMaterial({ ...helmetMat, color: colors.body }),
   );
   jaw.position.set(0, -0.22, 0.1);
   headPivot.add(jaw);
@@ -123,8 +157,8 @@ export function createEnemyMesh() {
   enemy.add(gunPivot);
 
   const gunMat = new THREE.MeshStandardMaterial({
-    color: 0xe63946,
-    emissive: 0xe63946,
+    color: colors.gun,
+    emissive: colors.glow,
     emissiveIntensity: 0.8,
     roughness: 0.3,
     metalness: 0.5,
@@ -155,7 +189,7 @@ export function createEnemyMesh() {
 
   const leftHand = new THREE.Mesh(
     new THREE.BoxGeometry(0.14, 0.12, 0.18),
-    new THREE.MeshStandardMaterial({ color: 0xe63946, metalness: 0.5, roughness: 0.3 }),
+    new THREE.MeshStandardMaterial({ color: colors.gun, metalness: 0.5, roughness: 0.3 }),
   );
   leftHand.position.set(0.1, 0.02, -0.75);
   gunPivot.add(leftHand);
@@ -163,7 +197,7 @@ export function createEnemyMesh() {
   // BACK POWER UNIT
   const backpack = new THREE.Mesh(
     new THREE.BoxGeometry(0.45, 0.5, 0.2),
-    new THREE.MeshStandardMaterial({ ...darkMetal, color: 0x0f3460 }),
+    new THREE.MeshStandardMaterial({ ...darkMetal, color: colors.body }),
   );
   backpack.position.set(0, 1.45, -0.35);
   enemy.add(backpack);
@@ -171,6 +205,26 @@ export function createEnemyMesh() {
   enemy.userData = { headPivot, torso, gunPivot };
 
   return enemy;
+}
+
+export function createGunModel() {
+  const gun = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.08, 0.35),
+    new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 }),
+  );
+  body.position.set(0.22, -0.18, -0.45);
+  gun.add(body);
+
+  const barrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.025, 0.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 }),
+  );
+  barrel.rotation.x = Math.PI / 2;
+  barrel.position.set(0.22, -0.16, -0.62);
+  gun.add(barrel);
+
+  return gun;
 }
 
 export function createHealthPickupMesh() {

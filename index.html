@@ -14,8 +14,10 @@
           <div class="bar-track"><div id="player-health" class="bar-fill player"></div></div>
         </div>
         <div class="hud-center">
-          <span id="difficulty" class="hud-stat">Difficulty: 1</span>
+          <span id="difficulty" class="hud-stat">Training (1/5)</span>
           <span id="kills" class="hud-stat">Kills: 0</span>
+          <span id="enemy-count" class="hud-stat">Enemies: 0/0</span>
+          <span id="tier-progress" class="hud-stat"></span>
         </div>
         <div class="hud-panel">
           <span class="label">ENEMY</span>
@@ -25,11 +27,18 @@
       <div id="crosshair">+</div>
       <div id="overlay" class="visible">
         <h1>Instant Arena</h1>
-        <p class="tagline">3D first-person shooter — you vs the bots</p>
+        <p class="tagline">3D first-person shooter — conquer 5 difficulty tiers</p>
         <div class="controls">
           <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> Move</p>
           <p><kbd>Mouse</kbd> Look around</p>
           <p><kbd>Click</kbd> / <kbd>Space</kbd> Shoot</p>
+        </div>
+        <div class="tier-info">
+          <div class="tier-badge tier-1">1 - Training</div>
+          <div class="tier-badge tier-2">2 - Patrol</div>
+          <div class="tier-badge tier-3">3 - Assault</div>
+          <div class="tier-badge tier-4">4 - Warzone</div>
+          <div class="tier-badge tier-5">5 - Annihilation</div>
         </div>
         <button id="start-btn">Enter Arena</button>
       </div>

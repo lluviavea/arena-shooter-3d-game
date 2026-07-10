@@ -1,13 +1,37 @@
 # Instant Arena Shooter
 
-3D first-person arena shooter in the browser. Fight one AI opponent in a neon-lit arena.
+3D first-person arena shooter in the browser. Conquer 5 difficulty tiers with escalating enemies, dynamic lighting, and procedural soundtracks.
+
+## Screenshots
+
+<!-- Add screenshots here after running the game -->
+<!-- Suggested shots: Training tier (friendly blue), Assault tier (orange), Annihilation tier (purple), Win screen -->
+
+| Training Tier | Annihilation Tier | Victory Screen |
+|:---:|:---:|:---:|
+| ![Training](screenshots/training.png) | ![Annihilation](screenshots/annihilation.png) | ![Victory](screenshots/victory.png) |
 
 ## Features
 
-- First-person 3D arena with walls and cover
-- Arrow keys to move and turn, Space to shoot
-- One computer opponent that patrols, chases, and fires back
-- Health bars, win/lose screen, instant replay
+- **5 difficulty tiers** with unique names, colors, and soundtracks
+- **Friendly to aggressive** visual scaling - enemies shift from blue/green to red/purple
+- **Multi-eniculty** spawning - 1 to 5 enemies per tier
+- **Dynamic arena lighting** that changes with each tier
+- **Procedural audio** - different ambient soundtracks per difficulty
+- **Gunshot and hit sound effects** via Web Audio API
+- **Win condition** - beat all 5 tiers to see the victory animation
+- **Health pickups** drop from defeated enemies
+- **WASD + mouse** controls
+
+## Difficulty Tiers
+
+| Tier | Name | Enemies | Color Theme | Music |
+|------|------|---------|-------------|-------|
+| 1 | Training | 1 | Blue/Green | Calm, friendly |
+| 2 | Patrol | 2 | Yellow/Orange | Slightly tense |
+| 3 | Assault | 3 | Orange/Red | Intense, driving |
+| 4 | Warzone | 4 | Red/Dark | Aggressive |
+| 5 | Annihilation | 5 | Purple/Crimson | Extreme, menacing |
 
 ## Quick start
 
@@ -22,11 +46,9 @@ Then click **Enter Arena** and play.
 
 | Key | Action |
 |-----|--------|
-| ↑ | Move forward |
-| ↓ | Move backward |
-| ← | Turn left |
-| → | Turn right |
-| Space | Shoot |
+| W/A/S/D | Move |
+| Mouse | Look around |
+| Click / Space | Shoot |
 
 ## Build
 
@@ -39,5 +61,6 @@ just preview   # serve production build locally
 
 - [Three.js](https://threejs.org/) — 3D rendering in the browser
 - [Vite](https://vite.dev/) — fast dev server and bundler
+- Web Audio API — procedural soundtracks and sound effects
 
 No backend required. Everything runs client-side.
