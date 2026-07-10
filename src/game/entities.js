@@ -1,17 +1,23 @@
 import * as THREE from "three";
 import {
-  ENEMY_FIRE_COOLDOWN,
   ENEMY_MAX_HEALTH,
   ENEMY_MOVE_SPEED,
   ENEMY_RADIUS,
+  ENEMY_FIRE_COOLDOWN,
+  ENEMY_AGGRO_RANGE,
+  ENEMY_FIRE_RANGE,
+  ENEMY_CLOSE_RANGE,
+  ENEMY_DAMAGE,
   PLAYER_FIRE_COOLDOWN,
   PLAYER_HEIGHT,
   PLAYER_MAX_HEALTH,
-  MOVE_SPEED,
-  TURN_SPEED,
-  forwardVector,
-  resolveObstacleCollision,
-} from "./world.js";
+  PLAYER_MOVE_SPEED,
+  PLAYER_DAMAGE,
+  PLAYER_HITSCAN_RANGE,
+  PLAYER_TURN_SPEED,
+  DIFFICULTY_SCALE_PER_TIER,
+} from "./constants.js";
+import { forwardVector, rightVector, resolveObstacleCollision } from "./world.js";
 import { hasLineOfSight, playerHitscan } from "./bullets.js";
 
 export class Player {
@@ -22,7 +28,6 @@ export class Player {
     this.rotationY = 0;
     this.health = PLAYER_MAX_HEALTH;
     this.fireCooldown = 0;
-    this.keys = { up: false, down: false, left: false, right: false, shoot: false };
   }
 
   reset() {
@@ -33,33 +38,29 @@ export class Player {
     this.fireCooldown = 0;
   }
 
-  handleKey(code, pressed) {
-    const map = {
-      ArrowUp: "up",
-      ArrowDown: "down",
-      ArrowLeft: "left",
-      ArrowRight: "right",
-      Space: "shoot",
-    };
-    const key = map[code];
-    if (key) this.keys[key] = pressed;
-  }
-
-  update(dt, world) {
-    if (this.keys.left) this.rotationY += TURN_SPEED * dt;
-    if (this.keys.right) this.rotationY -= TURN_SPEED * dt;
+  update(dt, world, controls) {
+    this.rotationY -= controls.consumeMouseDelta() * PLAYER_TURN_SPEED;
 
     const forward = forwardVector(this.rotationY);
+    const right = rightVector(this.rotationY);
     let moveX = 0;
     let moveZ = 0;
 
-    if (this.keys.up) {
-      moveX += forward.x * MOVE_SPEED * dt;
-      moveZ += forward.z * MOVE_SPEED * dt;
+    if (controls.keys.w) {
+      moveX += forward.x * PLAYER_MOVE_SPEED * dt;
+      moveZ += forward.z * PLAYER_MOVE_SPEED * dt;
     }
-    if (this.keys.down) {
-      moveX -= forward.x * MOVE_SPEED * dt;
-      moveZ -= forward.z * MOVE_SPEED * dt;
+    if (controls.keys.s) {
+      moveX -= forward.x * PLAYER_MOVE_SPEED * dt;
+      moveZ -= forward.z * PLAYER_MOVE_SPEED * dt;
+    }
+    if (controls.keys.a) {
+      moveX -= right.x * PLAYER_MOVE_SPEED * dt;
+      moveZ -= right.z * PLAYER_MOVE_SPEED * dt;
+    }
+    if (controls.keys.d) {
+      moveX += right.x * PLAYER_MOVE_SPEED * dt;
+      moveZ += right.z * PLAYER_MOVE_SPEED * dt;
     }
 
     const resolved = resolveObstacleCollision(
@@ -89,7 +90,7 @@ export class Player {
     bulletManager.spawnVisualTracer(origin, direction);
 
     if (playerHitscan(origin, direction, enemy, world.obstacles)) {
-      enemy.takeDamage(18);
+      enemy.takeDamage(PLAYER_DAMAGE);
       return "hit";
     }
 
@@ -98,6 +99,10 @@ export class Player {
 
   takeDamage(amount) {
     this.health = Math.max(0, this.health - amount);
+  }
+
+  heal(amount) {
+    this.health = Math.min(PLAYER_MAX_HEALTH, this.health + amount);
   }
 
   get isAlive() {
@@ -117,6 +122,7 @@ export class Enemy {
     this.wanderTimer = 0;
     this.time = 0;
     this.isWalking = false;
+    this.difficultyTier = 1;
 
     const { gunPivot } = mesh.userData;
     this.gunPivot = gunPivot;
@@ -124,16 +130,44 @@ export class Enemy {
     this.muzzleFlashTimer = 0;
   }
 
+  get scaledStats() {
+    const scale = 1 + (this.difficultyTier - 1) * DIFFICULTY_SCALE_PER_TIER;
+    return {
+      maxHealth: Math.round(ENEMY_MAX_HEALTH * scale),
+      moveSpeed: ENEMY_MOVE_SPEED * scale,
+      fireCooldown: ENEMY_FIRE_COOLDOWN / scale,
+      damage: Math.round(ENEMY_DAMAGE * scale),
+    };
+  }
+
   reset() {
     this.x = 0;
     this.z = -12;
     this.rotationY = 0;
-    this.health = ENEMY_MAX_HEALTH;
+    this.difficultyTier = 1;
+    this.health = this.scaledStats.maxHealth;
     this.fireCooldown = 1.2;
     this.wanderAngle = Math.random() * Math.PI * 2;
     this.wanderTimer = 0;
     this.time = 0;
     this.isWalking = false;
+    this.syncMesh();
+  }
+
+  respawn(tier) {
+    this.difficultyTier = tier;
+    this.health = this.scaledStats.maxHealth;
+    this.fireCooldown = 1.2;
+    this.wanderAngle = Math.random() * Math.PI * 2;
+    this.wanderTimer = 0;
+    this.time = 0;
+    this.isWalking = false;
+
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 10 + Math.random() * 5;
+    this.x = Math.sin(angle) * dist;
+    this.z = Math.cos(angle) * dist;
+
     this.syncMesh();
   }
 
@@ -159,6 +193,7 @@ export class Enemy {
   }
 
   update(dt, world, player, bulletManager) {
+    const stats = this.scaledStats;
     const playerPos = { x: player.x, z: player.z };
     const enemyPos = { x: this.x, z: this.z };
     const dist = Math.hypot(player.x - this.x, player.z - this.z);
@@ -166,14 +201,14 @@ export class Enemy {
 
     this.isWalking = false;
 
-    if (canSee && dist < 22) {
+    if (canSee && dist < ENEMY_AGGRO_RANGE) {
       const dx = player.x - this.x;
       const dz = player.z - this.z;
       this.rotationY = Math.atan2(dx, dz);
 
-      if (dist > 6) {
-        const moveX = Math.sin(this.rotationY) * ENEMY_MOVE_SPEED * dt;
-        const moveZ = Math.cos(this.rotationY) * ENEMY_MOVE_SPEED * dt;
+      if (dist > ENEMY_CLOSE_RANGE) {
+        const moveX = Math.sin(this.rotationY) * stats.moveSpeed * dt;
+        const moveZ = Math.cos(this.rotationY) * stats.moveSpeed * dt;
         const resolved = resolveObstacleCollision(
           this.x + moveX,
           this.z + moveZ,
@@ -186,22 +221,20 @@ export class Enemy {
       }
 
       this.fireCooldown -= dt;
-      if (this.fireCooldown <= 0 && dist < 18) {
-        this.fireCooldown = ENEMY_FIRE_COOLDOWN + Math.random() * 0.4;
+      if (this.fireCooldown <= 0 && dist < ENEMY_FIRE_RANGE) {
+        this.fireCooldown = stats.fireCooldown + Math.random() * 0.4;
 
-        // Get muzzle tip position in world space
         const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
         const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
-        muzzleWorld.y = 1.57; // Keep at consistent height
+        muzzleWorld.y = 1.57;
 
         const direction = new THREE.Vector3(
           player.x - muzzleWorld.x,
           (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
           player.z - muzzleWorld.z,
         );
-        bulletManager.spawn(muzzleWorld, direction, "enemy");
+        bulletManager.spawn(muzzleWorld, direction, "enemy", stats.damage);
 
-        // Trigger muzzle flash
         this.muzzleFlashTimer = 0.08;
       }
     } else {
@@ -211,8 +244,8 @@ export class Enemy {
         this.wanderAngle = Math.random() * Math.PI * 2;
       }
       this.rotationY = this.wanderAngle;
-      const moveX = Math.sin(this.rotationY) * (ENEMY_MOVE_SPEED * 0.5) * dt;
-      const moveZ = Math.cos(this.rotationY) * (ENEMY_MOVE_SPEED * 0.5) * dt;
+      const moveX = Math.sin(this.rotationY) * (stats.moveSpeed * 0.5) * dt;
+      const moveZ = Math.cos(this.rotationY) * (stats.moveSpeed * 0.5) * dt;
       const resolved = resolveObstacleCollision(
         this.x + moveX,
         this.z + moveZ,
@@ -226,7 +259,6 @@ export class Enemy {
 
     this.time += dt;
 
-    // Muzzle flash effect
     if (this.muzzleFlashTimer > 0) {
       this.muzzleFlashTimer -= dt;
       if (this.muzzle) this.muzzle.material.emissiveIntensity = 3.0;

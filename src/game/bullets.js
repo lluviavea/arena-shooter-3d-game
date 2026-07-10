@@ -5,7 +5,9 @@ import {
   ENEMY_RADIUS,
   PLAYER_HITSCAN_RANGE,
   PLAYER_RADIUS,
-} from "./world.js";
+  ENEMY_DAMAGE,
+  PLAYER_DAMAGE,
+} from "./constants.js";
 
 const _enemyCenter = new THREE.Vector3();
 
@@ -116,7 +118,7 @@ export class BulletManager {
     });
   }
 
-  spawn(origin, direction, owner) {
+  spawn(origin, direction, owner, damage) {
     const mesh = new THREE.Mesh(
       this.geo,
       owner === "player" ? this.playerMat : this.enemyMat,
@@ -125,7 +127,7 @@ export class BulletManager {
     this.scene.add(mesh);
 
     const velocity = direction.clone().normalize().multiplyScalar(BULLET_SPEED);
-    this.bullets.push({ mesh, velocity, owner, alive: true });
+    this.bullets.push({ mesh, velocity, owner, alive: true, damage: damage || PLAYER_DAMAGE });
   }
 
   update(dt, context) {
@@ -166,14 +168,14 @@ export class BulletManager {
         const dx = x - player.x;
         const dz = z - player.z;
         if (Math.hypot(dx, dz) < PLAYER_RADIUS + BULLET_RADIUS && y < PLAYER_RADIUS + 1.6) {
-          onPlayerHit(12);
+          onPlayerHit(bullet.damage);
           this.remove(bullet);
         }
       } else {
         const dx = x - enemy.x;
         const dz = z - enemy.z;
         if (Math.hypot(dx, dz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
-          onEnemyHit(18);
+          onEnemyHit(bullet.damage);
           this.remove(bullet);
         }
       }

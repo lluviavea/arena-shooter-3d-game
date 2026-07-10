@@ -1,16 +1,19 @@
 import * as THREE from "three";
-import {
-  createArena,
-  createEnemyMesh,
-  createGunModel,
-  setupLighting,
-} from "./world.js";
+import { createArena, setupLighting } from "./world.js";
+import { createEnemyMesh, createGunModel, createHealthPickupMesh } from "./models.js";
+import { Controls } from "./controls.js";
+import { UI } from "./ui.js";
 import { BulletManager } from "./bullets.js";
 import { Player, Enemy } from "./entities.js";
 import {
-  ENEMY_MAX_HEALTH,
+  HEALTH_PICKUP_AMOUNT,
+  HEALTH_PICKUP_RADIUS,
+  HEALTH_PICKUP_LIFETIME,
+  ENEMY_RESPAWN_DELAY,
+  KILLS_PER_TIER,
   PLAYER_MAX_HEALTH,
-} from "./world.js";
+  ENEMY_MAX_HEALTH,
+} from "./constants.js";
 
 export class Game {
   constructor(canvas) {
@@ -35,6 +38,8 @@ export class Game {
     );
 
     this.world = createArena(this.scene);
+    this.controls = new Controls(canvas);
+    this.ui = new UI();
     this.player = new Player(this.camera);
     this.bulletManager = new BulletManager(this.scene);
 
@@ -46,14 +51,11 @@ export class Game {
     this.camera.add(this.gun);
     this.scene.add(this.camera);
 
-    this.ui = {
-      overlay: document.getElementById("overlay"),
-      crosshair: document.getElementById("crosshair"),
-      message: document.getElementById("message"),
-      playerHealth: document.getElementById("player-health"),
-      enemyHealth: document.getElementById("enemy-health"),
-      startBtn: document.getElementById("start-btn"),
-    };
+    this.healthPickups = [];
+    this.kills = 0;
+    this.difficultyTier = 1;
+    this.respawnTimer = 0;
+    this.enemyAlive = true;
 
     this.bindEvents();
     this.onResize();
@@ -61,24 +63,6 @@ export class Game {
 
   bindEvents() {
     window.addEventListener("resize", () => this.onResize());
-
-    window.addEventListener("keydown", (e) => {
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) {
-        e.preventDefault();
-      }
-      if (!this.running) return;
-      if (e.code === "Space") {
-        const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
-        if (result === "hit") this.updateHud();
-      }
-      this.player.handleKey(e.code, true);
-    });
-
-    window.addEventListener("keyup", (e) => {
-      if (!this.running) return;
-      this.player.handleKey(e.code, false);
-    });
-
     this.ui.startBtn.addEventListener("click", () => this.start());
   }
 
@@ -93,10 +77,8 @@ export class Game {
   start() {
     this.reset();
     this.running = true;
-    this.ui.overlay.classList.add("hidden");
-    this.ui.overlay.classList.remove("visible");
-    this.ui.crosshair.classList.add("visible");
-    this.ui.message.classList.add("hidden");
+    this.controls.requestLock();
+    this.ui.showHUD();
     this.clock.start();
     this.loop();
   }
@@ -105,24 +87,93 @@ export class Game {
     this.player.reset();
     this.enemy.reset();
     this.bulletManager.clear();
+    this.clearHealthPickups();
+    this.kills = 0;
+    this.difficultyTier = 1;
+    this.respawnTimer = 0;
+    this.enemyAlive = true;
+    this.enemy.mesh.visible = true;
+    this.ui.updateDifficulty(this.difficultyTier);
+    this.ui.updateKills(this.kills);
     this.updateHud();
   }
 
-  endGame(won) {
+  endGame() {
     this.running = false;
-    this.ui.crosshair.classList.remove("visible");
-    this.ui.message.classList.remove("hidden");
-    this.ui.message.innerHTML = `
-      <h2>${won ? "Victory!" : "Defeated"}</h2>
-      <p>${won ? "You eliminated the arena bot." : "The bot got you. Try again!"}</p>
-      <button id="restart-btn">Play Again</button>
-    `;
-    document.getElementById("restart-btn").addEventListener("click", () => this.start());
+    document.exitPointerLock();
+    this.ui.showDeathScreen(() => this.start());
   }
 
   updateHud() {
-    this.ui.playerHealth.style.width = `${(this.player.health / PLAYER_MAX_HEALTH) * 100}%`;
-    this.ui.enemyHealth.style.width = `${(this.enemy.health / ENEMY_MAX_HEALTH) * 100}%`;
+    this.ui.updatePlayerHealth(this.player.health / PLAYER_MAX_HEALTH);
+    if (this.enemyAlive) {
+      this.ui.updateEnemyHealth(this.enemy.health / this.enemy.scaledStats.maxHealth);
+    } else {
+      this.ui.updateEnemyHealth(0);
+    }
+    this.ui.updateDifficulty(this.difficultyTier);
+    this.ui.updateKills(this.kills);
+  }
+
+  onEnemyKilled() {
+    this.kills++;
+    this.difficultyTier = 1 + Math.floor(this.kills / KILLS_PER_TIER);
+    this.enemyAlive = false;
+    this.enemy.mesh.visible = false;
+    this.respawnTimer = ENEMY_RESPAWN_DELAY;
+
+    this.spawnHealthPickup(this.enemy.x, this.enemy.z);
+    this.updateHud();
+  }
+
+  spawnHealthPickup(x, z) {
+    const mesh = createHealthPickupMesh();
+    mesh.position.set(x, 0.6, z);
+    this.scene.add(mesh);
+    this.healthPickups.push({ mesh, life: HEALTH_PICKUP_LIFETIME });
+  }
+
+  clearHealthPickups() {
+    for (const pickup of this.healthPickups) {
+      this.scene.remove(pickup.mesh);
+    }
+    this.healthPickups = [];
+  }
+
+  updateHealthPickups(dt) {
+    for (const pickup of this.healthPickups) {
+      pickup.life -= dt;
+      pickup.mesh.rotation.y += dt * 2;
+
+      const pulse = 0.9 + Math.sin(pickup.life * 4) * 0.1;
+      pickup.mesh.scale.setScalar(pulse);
+
+      const core = pickup.mesh.userData.core;
+      const glow = pickup.mesh.userData.glow;
+      if (core) {
+        core.material.opacity = 0.6 + Math.sin(pickup.life * 5) * 0.3;
+      }
+      if (glow) {
+        glow.material.opacity = 0.2 + Math.sin(pickup.life * 3) * 0.1;
+      }
+
+      if (pickup.life <= 0) {
+        this.scene.remove(pickup.mesh);
+        pickup.dead = true;
+        continue;
+      }
+
+      const dx = this.player.x - pickup.mesh.position.x;
+      const dz = this.player.z - pickup.mesh.position.z;
+      if (Math.hypot(dx, dz) < HEALTH_PICKUP_RADIUS + 0.45) {
+        this.player.heal(HEALTH_PICKUP_AMOUNT);
+        this.scene.remove(pickup.mesh);
+        pickup.dead = true;
+        this.updateHud();
+      }
+    }
+
+    this.healthPickups = this.healthPickups.filter((p) => !p.dead);
   }
 
   loop() {
@@ -130,13 +181,29 @@ export class Game {
 
     const dt = Math.min(this.clock.getDelta(), 0.05);
 
-    this.player.update(dt, this.world);
-    if (this.player.keys.shoot) {
-      const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
-      if (result === "hit") this.updateHud();
+    this.player.update(dt, this.world, this.controls);
+
+    if (this.controls.keys.shoot) {
+      if (this.enemyAlive) {
+        const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
+        if (result === "hit") {
+          if (!this.enemy.isAlive) this.onEnemyKilled();
+          this.updateHud();
+        }
+      }
     }
 
-    this.enemy.update(dt, this.world, this.player, this.bulletManager);
+    if (this.enemyAlive) {
+      this.enemy.update(dt, this.world, this.player, this.bulletManager);
+    } else {
+      this.respawnTimer -= dt;
+      if (this.respawnTimer <= 0) {
+        this.enemy.respawn(this.difficultyTier);
+        this.enemy.mesh.visible = true;
+        this.enemyAlive = true;
+        this.updateHud();
+      }
+    }
 
     this.bulletManager.update(dt, {
       obstacles: this.world.obstacles,
@@ -148,13 +215,17 @@ export class Game {
         this.updateHud();
       },
       onEnemyHit: (dmg) => {
-        this.enemy.takeDamage(dmg);
-        this.updateHud();
+        if (this.enemyAlive) {
+          this.enemy.takeDamage(dmg);
+          if (!this.enemy.isAlive) this.onEnemyKilled();
+          this.updateHud();
+        }
       },
     });
 
-    if (!this.player.isAlive) this.endGame(false);
-    else if (!this.enemy.isAlive) this.endGame(true);
+    this.updateHealthPickups(dt);
+
+    if (!this.player.isAlive) this.endGame();
 
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(() => this.loop());
