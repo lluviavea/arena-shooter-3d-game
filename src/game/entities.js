@@ -12,7 +12,7 @@ import {
   forwardVector,
   resolveObstacleCollision,
 } from "./world.js";
-import { hasLineOfSight } from "./bullets.js";
+import { hasLineOfSight, playerHitscan } from "./bullets.js";
 
 export class Player {
   constructor(camera) {
@@ -77,14 +77,22 @@ export class Player {
     if (this.fireCooldown > 0) this.fireCooldown -= dt;
   }
 
-  tryShoot(bulletManager) {
+  tryShoot(bulletManager, world, enemy) {
     if (this.fireCooldown > 0) return false;
     this.fireCooldown = PLAYER_FIRE_COOLDOWN;
 
-    const origin = new THREE.Vector3(this.x, PLAYER_HEIGHT - 0.05, this.z);
-    const direction = forwardVector(this.rotationY);
-    direction.y = -0.02;
-    bulletManager.spawn(origin, direction, "player");
+    const origin = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    this.camera.getWorldPosition(origin);
+    this.camera.getWorldDirection(direction);
+
+    bulletManager.spawnVisualTracer(origin, direction);
+
+    if (playerHitscan(origin, direction, enemy, world.obstacles)) {
+      enemy.takeDamage(18);
+      return "hit";
+    }
+
     return true;
   }
 

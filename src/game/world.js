@@ -12,8 +12,9 @@ export const ENEMY_MAX_HEALTH = 100;
 export const PLAYER_FIRE_COOLDOWN = 0.35;
 export const ENEMY_FIRE_COOLDOWN = 0.9;
 export const MOVE_SPEED = 7;
-export const TURN_SPEED = 2.4;
+export const TURN_SPEED = 0.5;
 export const ENEMY_MOVE_SPEED = 4.5;
+export const PLAYER_HITSCAN_RANGE = 55;
 
 export function clampToArena(x, z, margin = 1.2) {
   const limit = ARENA_SIZE / 2 - margin;

@@ -3,8 +3,85 @@ import {
   BULLET_RADIUS,
   BULLET_SPEED,
   ENEMY_RADIUS,
+  PLAYER_HITSCAN_RANGE,
   PLAYER_RADIUS,
 } from "./world.js";
+
+const _enemyCenter = new THREE.Vector3();
+
+export function raycastSphere(origin, direction, center, radius, maxDist) {
+  const ocX = origin.x - center.x;
+  const ocY = origin.y - center.y;
+  const ocZ = origin.z - center.z;
+  const b = 2 * (ocX * direction.x + ocY * direction.y + ocZ * direction.z);
+  const c = ocX * ocX + ocY * ocY + ocZ * ocZ - radius * radius;
+  const disc = b * b - 4 * c;
+  if (disc < 0) return null;
+  const sqrtDisc = Math.sqrt(disc);
+  const t1 = (-b - sqrtDisc) * 0.5;
+  const t2 = (-b + sqrtDisc) * 0.5;
+  const t = t1 > 0.001 ? t1 : t2 > 0.001 ? t2 : null;
+  if (t === null || t > maxDist) return null;
+  return t;
+}
+
+export function raycastObstacles(origin, direction, obstacles, maxDist) {
+  let closest = maxDist;
+
+  for (const box of obstacles) {
+    const t = raycastHorizontalBox(origin, direction, box, maxDist);
+    if (t !== null && t < closest) closest = t;
+  }
+
+  return closest;
+}
+
+function raycastHorizontalBox(origin, direction, box, maxDist) {
+  if (origin.y < 0 || origin.y > 3) return null;
+
+  let tMin = 0;
+  let tMax = maxDist;
+
+  if (Math.abs(direction.x) > 0.0001) {
+    const tx1 = (box.minX - origin.x) / direction.x;
+    const tx2 = (box.maxX - origin.x) / direction.x;
+    tMin = Math.max(tMin, Math.min(tx1, tx2));
+    tMax = Math.min(tMax, Math.max(tx1, tx2));
+  } else if (origin.x < box.minX || origin.x > box.maxX) {
+    return null;
+  }
+
+  if (Math.abs(direction.z) > 0.0001) {
+    const tz1 = (box.minZ - origin.z) / direction.z;
+    const tz2 = (box.maxZ - origin.z) / direction.z;
+    tMin = Math.max(tMin, Math.min(tz1, tz2));
+    tMax = Math.min(tMax, Math.max(tz1, tz2));
+  } else if (origin.z < box.minZ || origin.z > box.maxZ) {
+    return null;
+  }
+
+  if (tMin > tMax || tMax < 0) return null;
+  const hit = tMin > 0.001 ? tMin : tMax;
+  return hit <= maxDist ? hit : null;
+}
+
+export function playerHitscan(origin, direction, enemy, obstacles) {
+  _enemyCenter.set(enemy.x, 1.35, enemy.z);
+  const enemyHitDist = raycastSphere(
+    origin,
+    direction,
+    _enemyCenter,
+    ENEMY_RADIUS + 0.15,
+    PLAYER_HITSCAN_RANGE,
+  );
+
+  if (enemyHitDist === null) return false;
+
+  const wallDist = raycastObstacles(origin, direction, obstacles, PLAYER_HITSCAN_RANGE);
+  if (enemyHitDist >= wallDist) return false;
+
+  return true;
+}
 
 export class BulletManager {
   constructor(scene) {
@@ -20,6 +97,22 @@ export class BulletManager {
       color: 0xf97316,
       emissive: 0xea580c,
       emissiveIntensity: 0.8,
+    });
+  }
+
+  spawnVisualTracer(origin, direction) {
+    const mesh = new THREE.Mesh(this.geo, this.playerMat);
+    mesh.position.copy(origin);
+    this.scene.add(mesh);
+
+    const velocity = direction.clone().normalize().multiplyScalar(BULLET_SPEED * 2);
+    this.bullets.push({
+      mesh,
+      velocity,
+      owner: "player",
+      alive: true,
+      visualOnly: true,
+      life: 0.12,
     });
   }
 
@@ -41,8 +134,18 @@ export class BulletManager {
     for (const bullet of this.bullets) {
       if (!bullet.alive) continue;
 
+      if (bullet.visualOnly) {
+        bullet.life -= dt;
+        if (bullet.life <= 0) {
+          this.remove(bullet);
+          continue;
+        }
+      }
+
       bullet.mesh.position.addScaledVector(bullet.velocity, dt);
       const { x, y, z } = bullet.mesh.position;
+
+      if (bullet.visualOnly) continue;
 
       if (Math.abs(x) > half || Math.abs(z) > half || y < 0 || y > 5) {
         this.remove(bullet);

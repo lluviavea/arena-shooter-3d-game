@@ -68,7 +68,8 @@ export class Game {
       }
       if (!this.running) return;
       if (e.code === "Space") {
-        this.player.tryShoot(this.bulletManager);
+        const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
+        if (result === "hit") this.updateHud();
       }
       this.player.handleKey(e.code, true);
     });
@@ -131,7 +132,8 @@ export class Game {
 
     this.player.update(dt, this.world);
     if (this.player.keys.shoot) {
-      this.player.tryShoot(this.bulletManager);
+      const result = this.player.tryShoot(this.bulletManager, this.world, this.enemy);
+      if (result === "hit") this.updateHud();
     }
 
     this.enemy.update(dt, this.world, this.player, this.bulletManager);
