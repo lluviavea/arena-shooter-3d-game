@@ -117,6 +117,11 @@ export class Enemy {
     this.wanderTimer = 0;
     this.time = 0;
     this.isWalking = false;
+
+    const { gunPivot } = mesh.userData;
+    this.gunPivot = gunPivot;
+    this.muzzle = gunPivot.children.find((c) => c.geometry?.parameters?.radiusTop === 0.09);
+    this.muzzleFlashTimer = 0;
   }
 
   reset() {
@@ -183,13 +188,21 @@ export class Enemy {
       this.fireCooldown -= dt;
       if (this.fireCooldown <= 0 && dist < 18) {
         this.fireCooldown = ENEMY_FIRE_COOLDOWN + Math.random() * 0.4;
-        const origin = new THREE.Vector3(this.x, 1.5, this.z);
+
+        // Get muzzle tip position in world space
+        const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
+        const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
+        muzzleWorld.y = 1.57; // Keep at consistent height
+
         const direction = new THREE.Vector3(
-          player.x - this.x,
-          (PLAYER_HEIGHT - 1.5) * 0.3,
-          player.z - this.z,
+          player.x - muzzleWorld.x,
+          (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
+          player.z - muzzleWorld.z,
         );
-        bulletManager.spawn(origin, direction, "enemy");
+        bulletManager.spawn(muzzleWorld, direction, "enemy");
+
+        // Trigger muzzle flash
+        this.muzzleFlashTimer = 0.08;
       }
     } else {
       this.wanderTimer -= dt;
@@ -212,6 +225,15 @@ export class Enemy {
     }
 
     this.time += dt;
+
+    // Muzzle flash effect
+    if (this.muzzleFlashTimer > 0) {
+      this.muzzleFlashTimer -= dt;
+      if (this.muzzle) this.muzzle.material.emissiveIntensity = 3.0;
+    } else if (this.muzzle) {
+      this.muzzle.material.emissiveIntensity = 0.8;
+    }
+
     this.syncMesh();
   }
 

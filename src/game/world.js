@@ -291,33 +291,32 @@ export function createEnemyMesh() {
 
   // --- GUN ARM (right side) ---
   const gunPivot = new THREE.Group();
-  gunPivot.position.set(0.5, 1.55, 0);
+  gunPivot.position.set(0.55, 1.6, -0.1);
   enemy.add(gunPivot);
 
-  const gunBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.25, 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 }),
-  );
-  gunBody.position.set(0, 0, -0.2);
+  const gunMat = new THREE.MeshStandardMaterial({
+    color: 0xe63946,
+    emissive: 0xe63946,
+    emissiveIntensity: 0.8,
+    roughness: 0.3,
+    metalness: 0.5,
+  });
+
+  const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.65), gunMat);
+  gunBody.position.set(0, 0, -0.32);
   gunPivot.add(gunBody);
 
-  const gunBarrel = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.04, 0.35, 8),
-    new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 }),
-  );
+  const gunBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.55, 8), gunMat);
   gunBarrel.rotation.x = Math.PI / 2;
-  gunBarrel.position.set(0, 0.02, -0.55);
+  gunBarrel.position.set(0, 0.02, -0.88);
   gunPivot.add(gunBarrel);
 
-  const muzzle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.055, 0.06, 8),
-    accentGlow,
-  );
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.1, 8), gunMat);
   muzzle.rotation.x = Math.PI / 2;
-  muzzle.position.set(0, 0.02, -0.73);
+  muzzle.position.set(0, 0.02, -1.2);
   gunPivot.add(muzzle);
 
-  // --- LEFT ARM ---
+  // --- LEFT ARM (grips gun barrel) ---
   const leftArm = new THREE.Mesh(
     new THREE.BoxGeometry(0.18, 0.55, 0.2),
     new THREE.MeshStandardMaterial(darkMetal),
@@ -325,6 +324,13 @@ export function createEnemyMesh() {
   leftArm.position.set(-0.5, 1.35, 0);
   leftArm.castShadow = true;
   enemy.add(leftArm);
+
+  const leftHand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.12, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0xe63946, metalness: 0.5, roughness: 0.3 }),
+  );
+  leftHand.position.set(0.1, 0.02, -0.75);
+  gunPivot.add(leftHand);
 
   // --- BACK POWER UNIT ---
   const backpack = new THREE.Mesh(
@@ -335,7 +341,7 @@ export function createEnemyMesh() {
   enemy.add(backpack);
 
   // Animation references
-  enemy.userData = { headPivot, torso };
+  enemy.userData = { headPivot, torso, gunPivot };
 
   return enemy;
 }
