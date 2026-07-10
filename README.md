@@ -4,12 +4,17 @@
 
 ## Screenshots
 
-<!-- Add screenshots here after running the game -->
-<!-- Suggested shots: Training tier (friendly blue), Assault tier (orange), Annihilation tier (purple), Win screen -->
+### Training Tier
 
-| Training Tier | Annihilation Tier | Victory Screen |
-|:---:|:---:|:---:|
-| ![Training](screenshots/training.png) | ![Annihilation](screenshots/annihilation.png) | ![Victory](screenshots/victory.png) |
+![Training](screenshots/training.jpeg)
+
+### Annihilation Tier
+
+![Annihilation](screenshots/annihilation.jpeg)
+
+### Victory Screen
+
+![Victory](screenshots/victory.png)![alt text](46DEE807-0FFF-47AC-B22E-8FDC49D7D92B_1_201_a.jpeg)
 
 ## Features
 
