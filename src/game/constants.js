@@ -6,10 +6,10 @@ export const WALL_HEIGHT = 4;
 export const PLAYER_HEIGHT = 1.6;
 export const PLAYER_RADIUS = 0.45;
 export const PLAYER_MAX_HEALTH = 100;
-export const PLAYER_FIRE_COOLDOWN = 0.35;
+export const PLAYER_FIRE_COOLDOWN = 0.15;
 export const PLAYER_DAMAGE = 18;
 export const PLAYER_MOVE_SPEED = 7;
-export const PLAYER_TURN_SPEED = 0.003;
+export const PLAYER_TURN_SPEED = 0.006;
 export const PLAYER_HITSCAN_RANGE = 55;
 
 // Enemy
