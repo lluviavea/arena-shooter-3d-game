@@ -115,6 +115,8 @@ export class Enemy {
     this.fireCooldown = 1.2;
     this.wanderAngle = Math.random() * Math.PI * 2;
     this.wanderTimer = 0;
+    this.time = 0;
+    this.isWalking = false;
   }
 
   reset() {
@@ -125,12 +127,30 @@ export class Enemy {
     this.fireCooldown = 1.2;
     this.wanderAngle = Math.random() * Math.PI * 2;
     this.wanderTimer = 0;
+    this.time = 0;
+    this.isWalking = false;
     this.syncMesh();
   }
 
   syncMesh() {
     this.mesh.position.set(this.x, 0, this.z);
     this.mesh.rotation.y = this.rotationY;
+
+    const { headPivot, torso } = this.mesh.userData;
+    if (!headPivot || !torso) return;
+
+    const bob = Math.sin(this.time * 2.5) * 0.06;
+    this.mesh.position.y = bob;
+
+    if (this.isWalking) {
+      torso.rotation.z = Math.sin(this.time * 10) * 0.04;
+      torso.position.y = 1.35 + Math.abs(Math.sin(this.time * 10)) * 0.03;
+    } else {
+      torso.rotation.z = 0;
+      torso.position.y = 1.35;
+    }
+
+    headPivot.rotation.z = Math.sin(this.time * 3) * 0.015;
   }
 
   update(dt, world, player, bulletManager) {
@@ -138,6 +158,8 @@ export class Enemy {
     const enemyPos = { x: this.x, z: this.z };
     const dist = Math.hypot(player.x - this.x, player.z - this.z);
     const canSee = hasLineOfSight(enemyPos, playerPos, world.obstacles);
+
+    this.isWalking = false;
 
     if (canSee && dist < 22) {
       const dx = player.x - this.x;
@@ -155,6 +177,7 @@ export class Enemy {
         );
         this.x = resolved.x;
         this.z = resolved.z;
+        this.isWalking = true;
       }
 
       this.fireCooldown -= dt;
@@ -185,8 +208,10 @@ export class Enemy {
       );
       this.x = resolved.x;
       this.z = resolved.z;
+      this.isWalking = true;
     }
 
+    this.time += dt;
     this.syncMesh();
   }
 

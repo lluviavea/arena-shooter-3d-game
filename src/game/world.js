@@ -4,7 +4,7 @@ export const ARENA_SIZE = 36;
 export const WALL_HEIGHT = 4;
 export const PLAYER_HEIGHT = 1.6;
 export const PLAYER_RADIUS = 0.45;
-export const ENEMY_RADIUS = 0.55;
+export const ENEMY_RADIUS = 0.7;
 export const BULLET_SPEED = 28;
 export const BULLET_RADIUS = 0.12;
 export const PLAYER_MAX_HEALTH = 100;
@@ -187,35 +187,155 @@ export function createGunModel() {
 
 export function createEnemyMesh() {
   const enemy = new THREE.Group();
-
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.45, 0.9, 6, 12),
-    new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.45, metalness: 0.35 }),
-  );
-  body.position.y = 1.05;
-  body.castShadow = true;
-  enemy.add(body);
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.32, 16, 16),
-    new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.4, metalness: 0.4 }),
-  );
-  head.position.y = 1.85;
-  head.castShadow = true;
-  enemy.add(head);
-
-  const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0xfbbf24,
-    emissive: 0xf59e0b,
-    emissiveIntensity: 1.2,
+  const darkMetal = { color: 0x1a1a2e, roughness: 0.35, metalness: 0.7 };
+  const accentGlow = new THREE.MeshStandardMaterial({
+    color: 0xe63946,
+    emissive: 0xe63946,
+    emissiveIntensity: 0.8,
+    roughness: 0.3,
+    metalness: 0.5,
   });
-  const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), eyeMat);
-  leftEye.position.set(-0.12, 1.9, 0.26);
-  enemy.add(leftEye);
+  const helmetMat = { color: 0x16213e, roughness: 0.3, metalness: 0.75 };
 
-  const rightEye = leftEye.clone();
-  rightEye.position.x = 0.12;
-  enemy.add(rightEye);
+  // --- TORSO ---
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.55), new THREE.MeshStandardMaterial(darkMetal));
+  torso.position.y = 1.35;
+  torso.castShadow = true;
+  enemy.add(torso);
+
+  // Glowing chest strip
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.7, 0.06), accentGlow);
+  chest.position.set(0, 1.35, 0.28);
+  enemy.add(chest);
+
+  // Side accents
+  for (const side of [-1, 1]) {
+    const accent = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.35), accentGlow);
+    accent.position.set(side * 0.42, 1.35, 0);
+    enemy.add(accent);
+  }
+
+  // --- SHOULDER PADS ---
+  for (const side of [-1, 1]) {
+    const pad = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.18, 0.4),
+      new THREE.MeshStandardMaterial({ ...darkMetal, color: 0x0f3460 }),
+    );
+    pad.position.set(side * 0.55, 1.95, 0);
+    pad.castShadow = true;
+    enemy.add(pad);
+  }
+
+  // --- HEAD (Vader-style helmet) ---
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, 2.0, 0);
+  enemy.add(headPivot);
+
+  // Helmet dome
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.38, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
+    new THREE.MeshStandardMaterial(helmetMat),
+  );
+  dome.position.y = 0.12;
+  dome.castShadow = true;
+  headPivot.add(dome);
+
+  // Face plate
+  const facePlate = new THREE.Mesh(
+    new THREE.BoxGeometry(0.52, 0.35, 0.12),
+    new THREE.MeshStandardMaterial({ ...helmetMat, color: 0x1a1a2e }),
+  );
+  facePlate.position.set(0, -0.05, 0.22);
+  headPivot.add(facePlate);
+
+  // Cheek guards
+  for (const side of [-1, 1]) {
+    const cheek = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.25, 0.18),
+      new THREE.MeshStandardMaterial(helmetMat),
+    );
+    cheek.position.set(side * 0.25, -0.1, 0.15);
+    headPivot.add(cheek);
+  }
+
+  // Brow ridge
+  const brow = new THREE.Mesh(
+    new THREE.BoxGeometry(0.58, 0.08, 0.16),
+    new THREE.MeshStandardMaterial(helmetMat),
+  );
+  brow.position.set(0, 0.1, 0.18);
+  headPivot.add(brow);
+
+  // Visor slits (glowing red eyes)
+  for (const side of [-1, 1]) {
+    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.06), accentGlow);
+    slit.position.set(side * 0.13, 0.03, 0.28);
+    headPivot.add(slit);
+  }
+
+  // Nose ridge
+  const nose = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.18, 0.1),
+    new THREE.MeshStandardMaterial(helmetMat),
+  );
+  nose.position.set(0, -0.06, 0.27);
+  headPivot.add(nose);
+
+  // Jaw / chin guard
+  const jaw = new THREE.Mesh(
+    new THREE.BoxGeometry(0.32, 0.12, 0.2),
+    new THREE.MeshStandardMaterial({ ...helmetMat, color: 0x0f3460 }),
+  );
+  jaw.position.set(0, -0.22, 0.1);
+  headPivot.add(jaw);
+
+  // --- GUN ARM (right side) ---
+  const gunPivot = new THREE.Group();
+  gunPivot.position.set(0.5, 1.55, 0);
+  enemy.add(gunPivot);
+
+  const gunBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.25, 0.4),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 }),
+  );
+  gunBody.position.set(0, 0, -0.2);
+  gunPivot.add(gunBody);
+
+  const gunBarrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, 0.35, 8),
+    new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 }),
+  );
+  gunBarrel.rotation.x = Math.PI / 2;
+  gunBarrel.position.set(0, 0.02, -0.55);
+  gunPivot.add(gunBarrel);
+
+  const muzzle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.06, 8),
+    accentGlow,
+  );
+  muzzle.rotation.x = Math.PI / 2;
+  muzzle.position.set(0, 0.02, -0.73);
+  gunPivot.add(muzzle);
+
+  // --- LEFT ARM ---
+  const leftArm = new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.55, 0.2),
+    new THREE.MeshStandardMaterial(darkMetal),
+  );
+  leftArm.position.set(-0.5, 1.35, 0);
+  leftArm.castShadow = true;
+  enemy.add(leftArm);
+
+  // --- BACK POWER UNIT ---
+  const backpack = new THREE.Mesh(
+    new THREE.BoxGeometry(0.45, 0.5, 0.2),
+    new THREE.MeshStandardMaterial({ ...darkMetal, color: 0x0f3460 }),
+  );
+  backpack.position.set(0, 1.45, -0.35);
+  enemy.add(backpack);
+
+  // Animation references
+  enemy.userData = { headPivot, torso };
 
   return enemy;
 }
