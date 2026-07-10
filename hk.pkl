@@ -1,0 +1,7 @@
+# See https://github.com/jdx/hk
+[hooks]
+pre-commit = ["editorconfig-checker", "markdownlint"]
+
+[tools]
+editorconfig-checker = "latest"
+markdownlint = "latest"

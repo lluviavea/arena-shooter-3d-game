@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Instant Arena — 3D Shooter</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="ui">
+      <div id="hud">
+        <div class="hud-panel">
+          <span class="label">YOU</span>
+          <div class="bar-track"><div id="player-health" class="bar-fill player"></div></div>
+        </div>
+        <div class="hud-panel">
+          <span class="label">ENEMY</span>
+          <div class="bar-track"><div id="enemy-health" class="bar-fill enemy"></div></div>
+        </div>
+      </div>
+      <div id="crosshair">+</div>
+      <div id="overlay" class="visible">
+        <h1>Instant Arena</h1>
+        <p class="tagline">3D first-person shooter — you vs the bot</p>
+        <div class="controls">
+          <p><kbd>↑</kbd> <kbd>↓</kbd> Move forward / back</p>
+          <p><kbd>←</kbd> <kbd>→</kbd> Turn left / right</p>
+          <p><kbd>Space</kbd> Shoot</p>
+        </div>
+        <button id="start-btn">Enter Arena</button>
+      </div>
+      <div id="message" class="hidden"></div>
+    </div>
+    <canvas id="game"></canvas>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
