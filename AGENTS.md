@@ -1,12 +1,12 @@
 # Instant Arena Shooter
 
-Browser 3D FPS: arrow keys + space, one AI enemy. Vite + Three.js.
+Browser 3D FPS: WASD + mouse look, Space/click to shoot, one AI enemy. Vite + Three.js.
 
 ## Commands
 
 - `just setup` — mise trust/install, npm install
 - `just run` — dev server (user runs this, not the agent)
-- `just build` / `just test` — build and lint check
+- `just build` / `just check` — production build
 
 ## Layout
 
@@ -19,5 +19,5 @@ Browser 3D FPS: arrow keys + space, one AI enemy. Vite + Three.js.
 ## Conventions
 
 - Keep game logic in `src/game/`; no framework beyond Three.js
-- Arrow keys only (not WASD) per product spec
+- WASD + mouse + Space/click (see `controls.js`); pointer lock for look
 - Do not start dev servers from the agent session
