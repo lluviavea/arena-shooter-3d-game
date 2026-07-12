@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createArena, setupLighting, updateLighting, updateDisco } from "./world.js";
+import { createArena, setupLighting, updateLighting, updateDisco, pickSpawnPosition } from "./world.js";
 import { createEnemyMesh, createGunModel, createHealthPickupMesh } from "./models.js";
 import { Controls } from "./controls.js";
 import { UI } from "./ui.js";
@@ -125,19 +125,15 @@ export class Game {
 
   spawnTierEnemies() {
     const count = ENEMIES_PER_TIER[this.difficultyTier - 1] || 1;
-    const angleStep = (Math.PI * 2) / count;
 
     for (let i = 0; i < count; i++) {
       const mesh = createEnemyMesh(this.difficultyTier);
       this.scene.add(mesh);
       const enemy = new Enemy(mesh, this.difficultyTier);
 
-      const angle = angleStep * i + Math.random() * 0.5;
-      const dist = 10 + Math.random() * 5;
-      const sx = Math.sin(angle) * dist;
-      const sz = Math.cos(angle) * dist;
+      const { x, z } = pickSpawnPosition(this.player, this.world);
 
-      enemy.respawn(this.difficultyTier, sx, sz);
+      enemy.respawn(this.difficultyTier, x, z);
       this.enemies.push(enemy);
     }
   }
@@ -399,7 +395,8 @@ export class Game {
         const mesh = createEnemyMesh(this.difficultyTier);
         this.scene.add(mesh);
         const enemy = new Enemy(mesh, this.difficultyTier);
-        enemy.respawn(this.difficultyTier);
+        const { x, z } = pickSpawnPosition(this.player, this.world);
+        enemy.respawn(this.difficultyTier, x, z);
         this.enemies.push(enemy);
         this.updateHud();
       }

@@ -159,6 +159,29 @@ export function createArena(scene) {
   return { obstacles, half };
 }
 
+// Pick a spawn point on a ring of radius [minDist, maxDist] around the player,
+// rejecting spots that land inside obstacles or outside the arena.
+export function pickSpawnPosition(player, world, { minDist = 9, maxDist = 14 } = {}) {
+  const limit = world.half - 1.5;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = minDist + Math.random() * (maxDist - minDist);
+    const x = player.x + Math.sin(angle) * dist;
+    const z = player.z + Math.cos(angle) * dist;
+
+    if (x < -limit || x > limit || z < -limit || z > limit) continue;
+
+    const blocked = world.obstacles.some(
+      (b) => x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ,
+    );
+    if (blocked) continue;
+
+    return { x, z };
+  }
+  // Fallback: a clamped point in front of the player
+  return clampToArena(player.x, player.z + maxDist);
+}
+
 export function resolveObstacleCollision(x, z, obstacles, half) {
   let nx = x;
   let nz = z;
@@ -222,15 +245,13 @@ export function setupLighting(scene) {
     });
   }
 
-  // --- Disco ball: faceted metallic sphere on a thin post ---
+  // --- Disco ball: faceted mirror sphere (tiny mirror tiles) on a thin post ---
   const ballGroup = new THREE.Group();
-  const ballGeo = new THREE.IcosahedronGeometry(0.9, 2);
+  const ballGeo = new THREE.IcosahedronGeometry(0.9, 4);
   const ballMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     metalness: 1.0,
-    roughness: 0.05,
-    emissive: 0x222244,
-    emissiveIntensity: 0.3,
+    roughness: 0.08,
     flatShading: true,
   });
   const ball = new THREE.Mesh(ballGeo, ballMat);
@@ -294,13 +315,11 @@ export function updateDisco(lights, elapsed, tier, audioBeat = null) {
     d.light.intensity = d.baseIntensity * (0.4 + pulse * 0.9);
   }
 
-  // Spin the disco ball
+  // Spin the disco ball (mirror tiles catch the orbiting lights)
   if (lights.ball) {
     lights.ball.rotation.y = elapsed * 0.9;
     lights.ball.rotation.x = elapsed * 0.4;
     // Subtle bob
     lights.ballGroup.position.y = 6 + Math.sin(elapsed * 0.7) * 0.15;
-    // Flash the ball emissive on the beat
-    lights.ball.material.emissiveIntensity = 0.2 + pulse * 0.8;
   }
 }

@@ -17,7 +17,7 @@ import {
   PLAYER_TURN_SPEED,
   DIFFICULTY_SCALE_PER_TIER,
 } from "./constants.js";
-import { forwardVector, rightVector, resolveObstacleCollision } from "./world.js";
+import { forwardVector, rightVector, resolveObstacleCollision, clampToArena } from "./world.js";
 import { hasLineOfSight, playerHitscan } from "./bullets.js";
 
 export class Player {
@@ -173,10 +173,11 @@ export class Enemy {
       this.x = spawnX;
       this.z = spawnZ;
     } else {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 10 + Math.random() * 5;
-      this.x = Math.sin(angle) * dist;
-      this.z = Math.cos(angle) * dist;
+      // Safety net: callers should always pass explicit coords from
+      // pickSpawnPosition. Keep the enemy inside the arena if they don't.
+      const safe = clampToArena(this.x, this.z);
+      this.x = safe.x;
+      this.z = safe.z;
     }
 
     this.mesh.visible = true;
