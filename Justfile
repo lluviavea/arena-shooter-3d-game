@@ -19,3 +19,6 @@ preview:
 
 check:
     npm run build
+
+shots:
+    npm run shots
