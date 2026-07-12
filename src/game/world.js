@@ -23,66 +23,100 @@ export function rightVector(rotationY) {
   return new THREE.Vector3(Math.cos(rotationY), 0, -Math.sin(rotationY));
 }
 
+// Retro 80's disco palettes per tier — all neon, increasing intensity/heat
 const TIER_LIGHTING = [
-  // Tier 1: calm blue/green
-  { bg: 0x0b1020, fog: 0x0b1020, ambient: 0x6070a0, rim: 0x44bba4, ambientIntensity: 0.55 },
-  // Tier 2: warm amber
-  { bg: 0x12100a, fog: 0x12100a, ambient: 0x807050, rim: 0xe9a820, ambientIntensity: 0.6 },
-  // Tier 3: orange/red
-  { bg: 0x150a08, fog: 0x150a08, ambient: 0x906040, rim: 0xe85d3a, ambientIntensity: 0.65 },
-  // Tier 4: deep red
-  { bg: 0x180808, fog: 0x180808, ambient: 0xa04040, rim: 0xdc2626, ambientIntensity: 0.7 },
-  // Tier 5: purple/crimson
-  { bg: 0x120515, fog: 0x120515, ambient: 0x9040a0, rim: 0x9333ea, ambientIntensity: 0.75 },
+  // Tier 1 - Funk: cool magenta/cyan
+  { bg: 0x140428, fog: 0x2a0a4a, ambient: 0x6a2ea0, ambientIntensity: 0.45, beat: 1.0 },
+  // Tier 2 - Groove: cyan/purple
+  { bg: 0x0a1a3a, fog: 0x0e2a6a, ambient: 0x4070c0, ambientIntensity: 0.5, beat: 1.15 },
+  // Tier 3 - Neon: hot pink/purple
+  { bg: 0x1a0628, fog: 0x3a0a5a, ambient: 0xa040c0, ambientIntensity: 0.55, beat: 1.3 },
+  // Tier 4 - Fever: magenta/red neon
+  { bg: 0x280418, fog: 0x5a0a2a, ambient: 0xc04060, ambientIntensity: 0.6, beat: 1.45 },
+  // Tier 5 - Megamix: electric purple/pink max
+  { bg: 0x300628, fog: 0x6a0a4a, ambient: 0xd040a0, ambientIntensity: 0.65, beat: 1.6 },
+];
+
+// Four orbiting disco light colors (kept constant across tiers)
+const DISCO_LIGHT_COLORS = [
+  0xff2e9a, // magenta
+  0x00f0ff, // cyan
+  0xb026ff, // purple
+  0xfff200, // yellow
 ];
 
 export function createArena(scene) {
   const group = new THREE.Group();
 
+  // --- Floor: dark glossy with neon grid ---
   const floorGeo = new THREE.PlaneGeometry(ARENA_SIZE, ARENA_SIZE);
   const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x1a2035,
-    roughness: 0.85,
-    metalness: 0.15,
+    color: 0x0a0118,
+    roughness: 0.25,
+    metalness: 0.7,
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   group.add(floor);
 
-  const grid = new THREE.GridHelper(ARENA_SIZE, 18, 0x334155, 0x1e293b);
+  // Bright neon grid lines on the floor (two-tone synthwave grid)
+  const grid = new THREE.GridHelper(ARENA_SIZE, 18, 0xff2e9a, 0x00f0ff);
   grid.position.y = 0.02;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.9;
   group.add(grid);
 
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: 0x2d3748,
-    roughness: 0.7,
-    metalness: 0.2,
+  // --- Walls: dark panels with neon emissive strips ---
+  const wallBaseMat = new THREE.MeshStandardMaterial({
+    color: 0x10021f,
+    roughness: 0.4,
+    metalness: 0.6,
+  });
+  const wallStripMat = new THREE.MeshStandardMaterial({
+    color: 0xff2e9a,
+    emissive: 0xff2e9a,
+    emissiveIntensity: 1.6,
   });
 
   const half = ARENA_SIZE / 2;
   const walls = [
-    { w: ARENA_SIZE, d: 0.6, x: 0, z: -half },
-    { w: ARENA_SIZE, d: 0.6, x: 0, z: half },
-    { w: 0.6, d: ARENA_SIZE, x: -half, z: 0 },
-    { w: 0.6, d: ARENA_SIZE, x: half, z: 0 },
+    { w: ARENA_SIZE, d: 0.6, x: 0, z: -half, stripAxis: "x", stripX: 0, stripZ: -half + 0.32 },
+    { w: ARENA_SIZE, d: 0.6, x: 0, z: half, stripAxis: "x", stripX: 0, stripZ: half - 0.32 },
+    { w: 0.6, d: ARENA_SIZE, x: -half, z: 0, stripAxis: "z", stripX: -half + 0.32, stripZ: 0 },
+    { w: 0.6, d: ARENA_SIZE, x: half, z: 0, stripAxis: "z", stripX: half - 0.32, stripZ: 0 },
   ];
 
   for (const wall of walls) {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(wall.w, WALL_HEIGHT, wall.d),
-      wallMat,
+      wallBaseMat,
     );
     mesh.position.set(wall.x, WALL_HEIGHT / 2, wall.z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+
+    // Horizontal neon strip near top of wall
+    const stripGeo =
+      wall.stripAxis === "x"
+        ? new THREE.BoxGeometry(ARENA_SIZE - 0.6, 0.18, 0.08)
+        : new THREE.BoxGeometry(0.08, 0.18, ARENA_SIZE - 0.6);
+    const strip = new THREE.Mesh(stripGeo, wallStripMat);
+    strip.position.set(wall.stripX, WALL_HEIGHT - 0.6, wall.stripZ);
+    group.add(strip);
   }
 
-  const coverMat = new THREE.MeshStandardMaterial({
-    color: 0x475569,
-    roughness: 0.6,
-    metalness: 0.25,
+  // --- Cover obstacles: glowing neon-edged blocks ---
+  const coverBaseMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0a2e,
+    roughness: 0.3,
+    metalness: 0.7,
+  });
+  const coverEdgeMat = new THREE.MeshStandardMaterial({
+    color: 0x00f0ff,
+    emissive: 0x00f0ff,
+    emissiveIntensity: 1.4,
   });
 
   const covers = [
@@ -98,12 +132,21 @@ export function createArena(scene) {
   for (const cover of covers) {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(cover.w, cover.h, cover.d),
-      coverMat,
+      coverBaseMat,
     );
     mesh.position.set(cover.x, cover.h / 2, cover.z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+
+    // Neon top edge frame
+    const edge = new THREE.Mesh(
+      new THREE.BoxGeometry(cover.w + 0.12, 0.12, cover.d + 0.12),
+      coverEdgeMat,
+    );
+    edge.position.set(cover.x, cover.h + 0.02, cover.z);
+    group.add(edge);
+
     obstacles.push({
       minX: cover.x - cover.w / 2 - PLAYER_RADIUS,
       maxX: cover.x + cover.w / 2 + PLAYER_RADIUS,
@@ -146,12 +189,13 @@ export function setupLighting(scene) {
   const cfg = TIER_LIGHTING[0];
 
   scene.background = new THREE.Color(cfg.bg);
-  scene.fog = new THREE.Fog(cfg.fog, 20, 55);
+  scene.fog = new THREE.Fog(cfg.fog, 18, 52);
 
   const ambient = new THREE.AmbientLight(cfg.ambient, cfg.ambientIntensity);
   scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xfff0dd, 1.1);
+  // Soft directional fill for shadows
+  const sun = new THREE.DirectionalLight(0xff6ec7, 0.5);
   sun.position.set(12, 22, 8);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -163,19 +207,100 @@ export function setupLighting(scene) {
   sun.shadow.camera.bottom = -25;
   scene.add(sun);
 
-  const rim = new THREE.PointLight(cfg.rim, 0.6, 40);
-  rim.position.set(-10, 6, -10);
-  scene.add(rim);
+  // Four orbiting disco lights
+  const discoLights = [];
+  const lightRadius = 12;
+  for (let i = 0; i < 4; i++) {
+    const light = new THREE.PointLight(DISCO_LIGHT_COLORS[i], 2.2, 30, 1.5);
+    light.position.set(0, 7, 0);
+    scene.add(light);
+    discoLights.push({
+      light,
+      phase: (i / 4) * Math.PI * 2,
+      radius: lightRadius,
+      baseIntensity: 2.2,
+    });
+  }
 
-  return { ambient, sun, rim, scene };
+  // --- Disco ball: faceted metallic sphere on a thin post ---
+  const ballGroup = new THREE.Group();
+  const ballGeo = new THREE.IcosahedronGeometry(0.9, 2);
+  const ballMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 1.0,
+    roughness: 0.05,
+    emissive: 0x222244,
+    emissiveIntensity: 0.3,
+    flatShading: true,
+  });
+  const ball = new THREE.Mesh(ballGeo, ballMat);
+  ball.castShadow = true;
+  ballGroup.add(ball);
+
+  // Thin support post
+  const postMat = new THREE.MeshStandardMaterial({
+    color: 0x1a0a2e,
+    metalness: 0.8,
+    roughness: 0.3,
+  });
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 3.5, 6),
+    postMat,
+  );
+  post.position.y = 1.75;
+  ballGroup.add(post);
+
+  ballGroup.position.set(0, 6, 0);
+  scene.add(ballGroup);
+
+  return { ambient, sun, discoLights, ballGroup, ball, scene };
 }
 
 export function updateLighting(lights, tier) {
   const cfg = TIER_LIGHTING[Math.min(tier - 1, TIER_LIGHTING.length - 1)];
 
   lights.scene.background = new THREE.Color(cfg.bg);
-  lights.scene.fog = new THREE.Fog(cfg.fog, 20, 55);
+  lights.scene.fog = new THREE.Fog(cfg.fog, 18, 52);
   lights.ambient.color = new THREE.Color(cfg.ambient);
   lights.ambient.intensity = cfg.ambientIntensity;
-  lights.rim.color = new THREE.Color(cfg.rim);
+}
+
+// Beat rate (BPM) per tier, read by audio + lights for sync
+export function tierBeatRate(tier) {
+  const cfg = TIER_LIGHTING[Math.min(tier - 1, TIER_LIGHTING.length - 1)];
+  // Base ~125 BPM scaled by tier beat multiplier
+  return (125 / 60) * cfg.beat;
+}
+
+// Animate disco lights + ball each frame.
+// `elapsed` is total seconds, `tier` for beat rate, `audioBeat` optional 0..1 phase.
+export function updateDisco(lights, elapsed, tier, audioBeat = null) {
+  const beatRate = tierBeatRate(tier);
+  // Beat phase 0..1: either from audio or derived from time
+  const beatPhase =
+    audioBeat !== null ? audioBeat : (elapsed * beatRate) % 1;
+
+  // Pulsing intensity: sharp attack on each beat
+  const pulse = Math.pow(1 - beatPhase, 2.5);
+
+  for (let i = 0; i < lights.discoLights.length; i++) {
+    const d = lights.discoLights[i];
+    const angle = elapsed * 0.8 + d.phase;
+    d.light.position.set(
+      Math.cos(angle) * d.radius,
+      6 + Math.sin(elapsed * 1.3 + d.phase) * 1.5,
+      Math.sin(angle) * d.radius,
+    );
+    d.light.intensity = d.baseIntensity * (0.4 + pulse * 0.9);
+  }
+
+  // Spin the disco ball
+  if (lights.ball) {
+    lights.ball.rotation.y = elapsed * 0.9;
+    lights.ball.rotation.x = elapsed * 0.4;
+    // Subtle bob
+    lights.ballGroup.position.y = 6 + Math.sin(elapsed * 0.7) * 0.15;
+    // Flash the ball emissive on the beat
+    lights.ball.material.emissiveIntensity = 0.2 + pulse * 0.8;
+  }
 }

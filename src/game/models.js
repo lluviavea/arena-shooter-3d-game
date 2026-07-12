@@ -1,50 +1,50 @@
 import * as THREE from "three";
 
 const TIER_COLORS = [
-  // Tier 1 - Training: friendly blue/green
+  // Tier 1 - Funk: cyan neon
   {
-    body: 0x2d5a8e,
-    accent: 0x44bba4,
-    helmet: 0x1a3a5c,
-    glow: 0x44bba4,
-    gun: 0x44bba4,
-    eyeGlow: 0x44bba4,
+    body: 0x0a1a3a,
+    accent: 0x00f0ff,
+    helmet: 0x051028,
+    glow: 0x00f0ff,
+    gun: 0x00f0ff,
+    eyeGlow: 0x00f0ff,
   },
-  // Tier 2 - Patrol: neutral yellow/orange
+  // Tier 2 - Groove: magenta neon
   {
-    body: 0x5c4d3c,
-    accent: 0xe9a820,
-    helmet: 0x3d3428,
-    glow: 0xe9a820,
-    gun: 0xe9a820,
-    eyeGlow: 0xe9a820,
+    body: 0x2a0a2a,
+    accent: 0xff2e9a,
+    helmet: 0x18051a,
+    glow: 0xff2e9a,
+    gun: 0xff2e9a,
+    eyeGlow: 0xff2e9a,
   },
-  // Tier 3 - Assault: warm orange/red
+  // Tier 3 - Neon: purple neon
   {
-    body: 0x6b3030,
-    accent: 0xe85d3a,
-    helmet: 0x4a1f1f,
-    glow: 0xe85d3a,
-    gun: 0xe85d3a,
-    eyeGlow: 0xe85d3a,
+    body: 0x1a0a3a,
+    accent: 0xb026ff,
+    helmet: 0x0e0524,
+    glow: 0xb026ff,
+    gun: 0xb026ff,
+    eyeGlow: 0xb026ff,
   },
-  // Tier 4 - Warzone: red/dark
+  // Tier 4 - Fever: yellow/pink neon
   {
-    body: 0x4a1528,
-    accent: 0xdc2626,
-    helmet: 0x2e0d1a,
-    glow: 0xdc2626,
-    gun: 0xdc2626,
-    eyeGlow: 0xdc2626,
+    body: 0x2a1a0a,
+    accent: 0xfff200,
+    helmet: 0x180e05,
+    glow: 0xfff200,
+    gun: 0xfff200,
+    eyeGlow: 0xff6ec7,
   },
-  // Tier 5 - Annihilation: purple/crimson, menacing
+  // Tier 5 - Megamix: hot pink/red neon
   {
-    body: 0x2a0a3e,
-    accent: 0x9333ea,
-    helmet: 0x18062a,
-    glow: 0x9333ea,
-    gun: 0xdc2626,
-    eyeGlow: 0xff0040,
+    body: 0x3a0a1a,
+    accent: 0xff0040,
+    helmet: 0x24050f,
+    glow: 0xff0040,
+    gun: 0xff0040,
+    eyeGlow: 0xfff200,
   },
 ];
 
@@ -56,13 +56,13 @@ export function createEnemyMesh(tier = 1) {
   const colors = tierColor(tier);
   const enemy = new THREE.Group();
 
-  const darkMetal = { color: colors.body, roughness: 0.35, metalness: 0.7 };
+  const darkMetal = { color: colors.body, roughness: 0.25, metalness: 0.85 };
   const accentGlow = new THREE.MeshStandardMaterial({
     color: colors.accent,
     emissive: colors.glow,
-    emissiveIntensity: 0.8,
-    roughness: 0.3,
-    metalness: 0.5,
+    emissiveIntensity: 1.8,
+    roughness: 0.2,
+    metalness: 0.4,
   });
   const helmetMat = { color: colors.helmet, roughness: 0.3, metalness: 0.75 };
 
@@ -159,8 +159,8 @@ export function createEnemyMesh(tier = 1) {
   const gunMat = new THREE.MeshStandardMaterial({
     color: colors.gun,
     emissive: colors.glow,
-    emissiveIntensity: 0.8,
-    roughness: 0.3,
+    emissiveIntensity: 1.6,
+    roughness: 0.2,
     metalness: 0.5,
   });
 
@@ -211,14 +211,14 @@ export function createGunModel() {
   const gun = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.08, 0.35),
-    new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 }),
+    new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00f0ff, emissiveIntensity: 1.2, metalness: 0.6, roughness: 0.2 }),
   );
   body.position.set(0.22, -0.18, -0.45);
   gun.add(body);
 
   const barrel = new THREE.Mesh(
     new THREE.CylinderGeometry(0.025, 0.025, 0.2, 8),
-    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0xff2e9a, emissive: 0xff2e9a, emissiveIntensity: 1.0, metalness: 0.8, roughness: 0.15 }),
   );
   barrel.rotation.x = Math.PI / 2;
   barrel.position.set(0.22, -0.16, -0.62);
@@ -233,9 +233,9 @@ export function createHealthPickupMesh() {
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(0.35, 16, 12),
     new THREE.MeshStandardMaterial({
-      color: 0x22c55e,
-      emissive: 0x22c55e,
-      emissiveIntensity: 0.9,
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.2,
       transparent: true,
       opacity: 0.85,
     }),
@@ -245,9 +245,9 @@ export function createHealthPickupMesh() {
   const glow = new THREE.Mesh(
     new THREE.SphereGeometry(0.5, 16, 12),
     new THREE.MeshStandardMaterial({
-      color: 0x22c55e,
-      emissive: 0x22c55e,
-      emissiveIntensity: 0.4,
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 0.6,
       transparent: true,
       opacity: 0.3,
     }),

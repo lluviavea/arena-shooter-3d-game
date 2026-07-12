@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createArena, setupLighting, updateLighting } from "./world.js";
+import { createArena, setupLighting, updateLighting, updateDisco } from "./world.js";
 import { createEnemyMesh, createGunModel, createHealthPickupMesh } from "./models.js";
 import { Controls } from "./controls.js";
 import { UI } from "./ui.js";
@@ -59,6 +59,7 @@ export class Game {
     this.difficultyTier = 1;
     this.respawnTimer = 0;
     this.gameWon = false;
+    this.elapsed = 0;
 
     // Win animation state
     this.winAnimTime = 0;
@@ -112,6 +113,7 @@ export class Game {
     this.respawnTimer = 0;
     this.gameWon = false;
     this.winAnimTime = 0;
+    this.elapsed = 0;
 
     this.spawnTierEnemies();
     this.updateLightingForTier();
@@ -167,14 +169,14 @@ export class Game {
   }
 
   spawnWinParticles() {
+    const neonPalette = [0xff2e9a, 0x00f0ff, 0xb026ff, 0xfff200, 0xff6ec7];
     for (let i = 0; i < 80; i++) {
       const geo = new THREE.SphereGeometry(0.15, 8, 8);
-      const hue = Math.random();
-      const color = new THREE.Color().setHSL(hue, 0.9, 0.6);
+      const color = new THREE.Color(neonPalette[i % neonPalette.length]);
       const mat = new THREE.MeshStandardMaterial({
         color,
         emissive: color,
-        emissiveIntensity: 1.5,
+        emissiveIntensity: 2.0,
         transparent: true,
         opacity: 1,
       });
@@ -337,6 +339,11 @@ export class Game {
     if (!this.running) return;
 
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    this.elapsed += dt;
+
+    // Sync disco lights to the music beat
+    const beatPhase = this.audio.getBeatPhase ? this.audio.getBeatPhase() : null;
+    updateDisco(this.lights, this.elapsed, this.difficultyTier, beatPhase);
 
     this.player.update(dt, this.world, this.controls);
 

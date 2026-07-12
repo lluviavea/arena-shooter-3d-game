@@ -91,14 +91,14 @@ export class BulletManager {
     this.bullets = [];
     this.geo = new THREE.SphereGeometry(BULLET_RADIUS, 8, 8);
     this.playerMat = new THREE.MeshStandardMaterial({
-      color: 0x60a5fa,
-      emissive: 0x3b82f6,
-      emissiveIntensity: 0.8,
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.8,
     });
     this.enemyMat = new THREE.MeshStandardMaterial({
-      color: 0xf97316,
-      emissive: 0xea580c,
-      emissiveIntensity: 0.8,
+      color: 0xff2e9a,
+      emissive: 0xff2e9a,
+      emissiveIntensity: 1.8,
     });
   }
 

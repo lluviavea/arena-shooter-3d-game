@@ -38,12 +38,21 @@ export const DIFFICULTY_SCALE_PER_TIER = 0.2;
 export const ENEMIES_PER_TIER = [1, 2, 3, 4, 5];
 
 export const TIER_NAMES = [
-  "Training",
-  "Patrol",
-  "Assault",
-  "Warzone",
-  "Annihilation",
+  "Funk",
+  "Groove",
+  "Neon",
+  "Fever",
+  "Megamix",
 ];
+
+// Retro 80's disco neon palette
+export const NEON_COLORS = {
+  magenta: 0xff2e9a,
+  cyan: 0x00f0ff,
+  purple: 0xb026ff,
+  yellow: 0xfff200,
+  pink: 0xff6ec7,
+};
 
 // Respawn
 export const ENEMY_RESPAWN_DELAY = 2.5;

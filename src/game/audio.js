@@ -5,6 +5,9 @@ export class AudioManager {
     this.musicNodes = [];
     this.currentTier = 0;
     this.initialized = false;
+    this.beatScheduler = null;
+    this.beatPhase = 0;
+    this.beatNumber = 0;
   }
 
   init() {
@@ -153,131 +156,189 @@ export class AudioManager {
     this.currentTier = tier;
     const now = this.ctx.currentTime;
 
-    const configs = [
-      // Tier 1 - Training: calm, soft, friendly
-      {
-        base: 220,
-        padFreqs: [220, 277, 330],
-        padGain: 0.04,
-        padFilterFreq: 600,
-        lfoRate: 0.3,
-        lfoDepth: 5,
-        droneFreq: 110,
-        droneGain: 0.03,
-        pulseRate: 0.5,
-      },
-      // Tier 2 - Patrol: slightly tense, medium
-      {
-        base: 246,
-        padFreqs: [246, 311, 370],
-        padGain: 0.05,
-        padFilterFreq: 800,
-        lfoRate: 0.5,
-        lfoDepth: 8,
-        droneFreq: 123,
-        droneGain: 0.04,
-        pulseRate: 0.8,
-      },
-      // Tier 3 - Assault: intense, driving
-      {
-        base: 293,
-        padFreqs: [293, 370, 440],
-        padGain: 0.06,
-        padFilterFreq: 1200,
-        lfoRate: 0.8,
-        lfoDepth: 15,
-        droneFreq: 146,
-        droneGain: 0.05,
-        pulseRate: 1.2,
-      },
-      // Tier 4 - Warzone: aggressive, dark
-      {
-        base: 329,
-        padFreqs: [329, 415, 493],
-        padGain: 0.07,
-        padFilterFreq: 1600,
-        lfoRate: 1.0,
-        lfoDepth: 20,
-        droneFreq: 164,
-        droneGain: 0.06,
-        pulseRate: 1.6,
-      },
-      // Tier 5 - Annihilation: extreme, menacing
-      {
-        base: 369,
-        padFreqs: [369, 466, 554],
-        padGain: 0.08,
-        padFilterFreq: 2000,
-        lfoRate: 1.3,
-        lfoDepth: 25,
-        droneFreq: 184,
-        droneGain: 0.07,
-        pulseRate: 2.0,
-      },
-    ];
+    // Tempo per tier: ~120 BPM rising to ~140 BPM
+    const bpms = [120, 125, 130, 135, 140];
+    const bpm = bpms[Math.min(tier - 1, bpms.length - 1)];
+    const beatLen = 60 / bpm; // seconds per beat
+    this.beatLen = beatLen;
 
-    const cfg = configs[Math.min(tier - 1, configs.length - 1)];
+    // Root notes per tier (A minor-ish groove, rising intensity)
+    const roots = [110.0, 116.54, 130.81, 146.83, 164.81]; // A2, A#2, C3, D3, E3
+    const root = roots[Math.min(tier - 1, roots.length - 1)];
 
-    // LFO
-    const lfo = this.ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = cfg.lfoRate;
-    const lfoGain = this.ctx.createGain();
-    lfoGain.gain.value = cfg.lfoDepth;
-    lfo.connect(lfoGain);
-
-    // Pad voices
-    for (const freq of cfg.padFreqs) {
+    // --- Sustained pad (synth string layer) ---
+    const padOscs = [root * 2, root * 2 * 1.5, root * 2 * 2];
+    const padGain = this.ctx.createGain();
+    padGain.gain.value = 0.025;
+    const padFilter = this.ctx.createBiquadFilter();
+    padFilter.type = "lowpass";
+    padFilter.frequency.value = 900;
+    padGain.connect(this.masterGain);
+    padFilter.connect(padGain);
+    for (const f of padOscs) {
       const osc = this.ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.value = cfg.padFilterFreq;
-      lfoGain.connect(filter.frequency);
-
-      const gain = this.ctx.createGain();
-      gain.gain.value = cfg.padGain;
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.masterGain);
+      osc.type = "sawtooth";
+      osc.frequency.value = f;
+      osc.connect(padFilter);
       osc.start(now);
-      this.musicNodes.push({ osc, gain, filter });
+      this.musicNodes.push({ osc, gain: padGain, filter: padFilter });
     }
 
-    // Drone
-    const droneOsc = this.ctx.createOscillator();
-    droneOsc.type = "triangle";
-    droneOsc.frequency.value = cfg.droneFreq;
-    const droneGain = this.ctx.createGain();
-    droneGain.gain.value = cfg.droneGain;
-    droneOsc.connect(droneGain);
-    droneGain.connect(this.masterGain);
-    droneOsc.start(now);
-    this.musicNodes.push({ osc: droneOsc, gain: droneGain });
+    // --- Drum + bass + arp scheduled via lookahead loop ---
+    this.beatNumber = 0;
+    this.nextBeatTime = now + 0.05;
 
-    // Pulse
-    const pulseOsc = this.ctx.createOscillator();
-    pulseOsc.type = "square";
-    pulseOsc.frequency.value = cfg.pulseRate;
-    const pulseGain = this.ctx.createGain();
-    pulseGain.gain.value = 0.02;
-    const pulseFilter = this.ctx.createBiquadFilter();
-    pulseFilter.type = "lowpass";
-    pulseFilter.frequency.value = 200;
-    pulseOsc.connect(pulseFilter);
-    pulseFilter.connect(pulseGain);
-    pulseGain.connect(this.masterGain);
-    pulseOsc.start(now);
-    this.musicNodes.push({ osc: pulseOsc, gain: pulseGain, filter: pulseFilter });
+    // Arp pattern (pentatonic, 8 steps over 2 beats)
+    const arpScale = [root * 4, root * 4 * 1.125, root * 4 * 1.5, root * 4 * 1.6875];
+    const arpPattern = [0, 1, 2, 3, 2, 1, 0, 1];
 
-    lfo.start(now);
-    this.musicNodes.push({ osc: lfo, gain: lfoGain });
+    const scheduleBeat = (beatIndex, time) => {
+      const inBar = beatIndex % 4;
+
+      // Kick on every beat (four-on-the-floor)
+      this.#kick(time);
+
+      // Closed hat on offbeats (8th note offset)
+      this.#hihat(time + beatLen * 0.5, 0.04);
+
+      // Open-ish hat on the "and of 3"
+      if (inBar === 2) this.#hihat(time + beatLen * 0.5, 0.07);
+
+      // Bass: root on beats 1 & 3, fifth on 2 & 4 (driving octave bass)
+      const bassFreq = inBar === 0 || inBar === 2 ? root : root * 1.5;
+      this.#bass(bassFreq, time, beatLen * 0.8);
+
+      // Snare/clap on beats 2 and 4
+      if (inBar === 1 || inBar === 3) this.#clap(time);
+
+      // Arp: two notes per beat (16th-ish feel)
+      const step = beatIndex % arpPattern.length;
+      this.#arp(arpScale[arpPattern[step]], time, beatLen * 0.4);
+      this.#arp(arpScale[arpPattern[(step + 2) % arpPattern.length]], time + beatLen * 0.5, beatLen * 0.3);
+    };
+
+    const tick = () => {
+      if (!this.ctx) return;
+      const ahead = 0.15; // schedule 150ms ahead
+      while (this.nextBeatTime < this.ctx.currentTime + ahead) {
+        scheduleBeat(this.beatNumber, this.nextBeatTime);
+        this.beatNumber++;
+        this.nextBeatTime += beatLen;
+      }
+    };
+
+    tick();
+    this.beatScheduler = setInterval(tick, 50);
+    this._lastTickTime = performance.now();
+  }
+
+  #kick(time) {
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(45, time + 0.12);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.6, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + 0.2);
+    this.musicNodes.push({ osc: { stop: (t) => { try { osc.stop(t); } catch (e) {} } }, gain: g });
+  }
+
+  #hihat(time, level) {
+    const noise = this.ctx.createBufferSource();
+    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.05, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buf;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 7000;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(level, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+    noise.connect(filter);
+    filter.connect(g);
+    g.connect(this.masterGain);
+    noise.start(time);
+    noise.stop(time + 0.05);
+    this.musicNodes.push({ osc: noise, gain: g });
+  }
+
+  #bass(freq, time, dur) {
+    const osc = this.ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(800, time);
+    filter.frequency.exponentialRampToValueAtTime(250, time + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(0.12, time + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    osc.connect(filter);
+    filter.connect(g);
+    g.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+    this.musicNodes.push({ osc, gain: g });
+  }
+
+  #arp(freq, time, dur) {
+    const osc = this.ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 3000;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(0.05, time + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    osc.connect(filter);
+    filter.connect(g);
+    g.connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+    this.musicNodes.push({ osc, gain: g });
+  }
+
+  #clap(time) {
+    const noise = this.ctx.createBufferSource();
+    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.15, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2);
+    noise.buffer = buf;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1500;
+    filter.Q.value = 1.2;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.18, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+    noise.connect(filter);
+    filter.connect(g);
+    g.connect(this.masterGain);
+    noise.start(time);
+    noise.stop(time + 0.15);
+    this.musicNodes.push({ osc: noise, gain: g });
+  }
+
+  // Returns current beat phase 0..1 for visual sync (call from game loop)
+  getBeatPhase() {
+    if (!this.ctx || !this.beatLen) return 0;
+    const elapsed = this.ctx.currentTime - (this.nextBeatTime - this.beatLen);
+    return Math.max(0, Math.min(1, elapsed / this.beatLen));
   }
 
   stopMusic() {
+    if (this.beatScheduler) {
+      clearInterval(this.beatScheduler);
+      this.beatScheduler = null;
+    }
     for (const node of this.musicNodes) {
       try {
         node.osc.stop();
