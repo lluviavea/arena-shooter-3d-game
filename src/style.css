@@ -559,3 +559,40 @@ kbd {
     0 0 18px rgba(251, 191, 36, 0.55),
     0 0 36px rgba(255, 46, 154, 0.4);
 }
+
+/* Pause screen styles */
+.pause-screen {
+  background: radial-gradient(circle at center, rgba(10, 26, 58, 0.88), rgba(13, 2, 24, 0.95)) !important;
+}
+
+.pause-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pause-screen h2 {
+  background: linear-gradient(135deg, #00f0ff, #b026ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  animation: pausePulse 2s ease-in-out infinite;
+}
+
+#message.pause-screen button {
+  background: linear-gradient(135deg, #00f0ff, #b026ff);
+  box-shadow:
+    0 0 16px rgba(0, 240, 255, 0.5),
+    0 0 32px rgba(176, 38, 255, 0.3);
+}
+
+@keyframes pausePulse {
+  0%, 100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}

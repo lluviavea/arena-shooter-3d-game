@@ -102,4 +102,24 @@ export class UI {
     this.overlay.classList.remove("hidden");
     this.overlay.classList.add("visible");
   }
+
+  showPauseScreen(onResume) {
+    this.hideCrosshair();
+    this.message.classList.remove("hidden");
+    this.message.classList.add("pause-screen");
+    this.message.innerHTML = `
+      <div class="pause-content">
+        <h2>Paused</h2>
+        <p>Press Esc or click Resume to continue</p>
+        <button id="resume-btn">Resume</button>
+      </div>
+    `;
+    document.getElementById("resume-btn").addEventListener("click", onResume);
+  }
+
+  hidePauseScreen() {
+    this.message.classList.add("hidden");
+    this.message.classList.remove("pause-screen");
+    this.crosshair.classList.add("visible");
+  }
 }

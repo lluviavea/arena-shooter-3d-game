@@ -45,22 +45,37 @@ export const TIER_NAMES = [
   "Grand Finale",
 ];
 
-// Tier 6 boss — the Grand Finale. Tuned for a "challenging but fair" duel.
-export const BOSS_MAX_HEALTH = 700;
-export const BOSS_DAMAGE = 14; // per pellet (3-pellet spread)
-export const BOSS_FIRE_COOLDOWN = 0.7;
-export const BOSS_MOVE_SPEED = 4.5;
+// Tier 6 boss — the Grand Finale. BRUTAL tuning: fast, smart, relentless.
+export const BOSS_MAX_HEALTH = 800;
+export const BOSS_DAMAGE = 16; // per pellet (5-pellet spread)
+export const BOSS_FIRE_COOLDOWN = 0.35;
+export const BOSS_MOVE_SPEED = 6.5; // nearly as fast as the player (7)
 export const BOSS_RADIUS = 1.4; // bigger hit target
 export const BOSS_HIT_HEIGHT = 1.7;
 export const BOSS_HIT_Y_MAX = 3.4;
-export const BOSS_AGGRO_RANGE = 26;
-export const BOSS_FIRE_RANGE = 24;
-export const BOSS_CLOSE_RANGE = 8;
-export const BOSS_SPREAD_PELLETS = 3;
-export const BOSS_SPREAD_ANGLE = 0.21; // radians, ~12 degrees per side
+export const BOSS_AGGRO_RANGE = 30;
+export const BOSS_FIRE_RANGE = 28;
+export const BOSS_CLOSE_RANGE = 6;
+export const BOSS_SPREAD_PELLETS = 5;
+export const BOSS_SPREAD_ANGLE = 0.15; // radians, ~8.6 degrees per side (tighter = harder to dodge)
+
+// Enrage Phase 2 — triggers at 50% HP. The boss goes berserk.
+export const BOSS_ENRAGE_HP_THRESHOLD = 0.5; // fraction of max HP
+export const BOSS_ENRAGE_SPEED_MULT = 1.4; // 6.5 -> 9.1 (faster than player!)
+export const BOSS_ENRAGE_FIRE_MULT = 0.6; // cooldown multiplier (0.35 -> 0.21s)
+export const BOSS_ENRAGE_SPREAD_PELLETS = 7;
+export const BOSS_ENRAGE_SPREAD_ANGLE = 0.12; // even tighter wall of bullets
+export const BOSS_ENRAGE_LEAD_FACTOR = 0.95; // nearly perfect predictive aim
+
+// Smart AI behaviors
+export const BOSS_LEAD_FACTOR = 0.8; // 1.0 = perfect lead, 0 = no lead
+export const BOSS_STRAFE_INTERVAL = 1.5; // seconds between strafe direction flips
+export const BOSS_STRAFE_SPEED = 0.7; // fraction of move speed used for strafing
+export const BOSS_ENRAGE_STRAFE_INTERVAL = 0.9; // faster strafe flips when enraged
+
 // Reinforcements that harass the player during the boss fight
-export const BOSS_ADD_CAP = 2;
-export const BOSS_ADD_INTERVAL = 7; // seconds between add spawns
+export const BOSS_ADD_CAP = 4;
+export const BOSS_ADD_INTERVAL = 4; // seconds between add spawns
 export const BOSS_ADD_TIER = 3; // adds use tier-3 stats
 
 // Retro 80's disco neon palette

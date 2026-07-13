@@ -62,6 +62,7 @@ export class Game {
     this.respawnTimer = 0;
     this.gameWon = false;
     this.elapsed = 0;
+    this.paused = false;
 
     // Win animation state
     this.winAnimTime = 0;
@@ -119,6 +120,9 @@ export class Game {
     this.#ensureAudioUnlocked();
     this.reset();
     this.running = true;
+    this.paused = false;
+    // Drain any stale pause toggle from Esc pressed during death/win screens
+    this.controls.consumePauseToggle();
     if (!this.controls.hasGamepad) {
       this.controls.requestLock();
     }
@@ -126,6 +130,27 @@ export class Game {
     this.clock.start();
     this.audio.startMusic(this.difficultyTier);
     this.loop();
+  }
+
+  _pause() {
+    this.paused = true;
+    if (document.pointerLockElement) document.exitPointerLock();
+    if (this.audio.ctx && this.audio.ctx.state === "running") {
+      this.audio.ctx.suspend();
+    }
+    this.ui.showPauseScreen(() => this._resume());
+  }
+
+  _resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    if (this.audio.ctx && this.audio.ctx.state === "suspended") {
+      this.audio.ctx.resume();
+    }
+    if (!this.controls.hasGamepad) {
+      this.controls.requestLock();
+    }
+    this.ui.hidePauseScreen();
   }
 
   // If the AudioContext is still suspended after start() (e.g. a gamepad-only
@@ -185,6 +210,7 @@ export class Game {
     this.gameWon = false;
     this.winAnimTime = 0;
     this.elapsed = 0;
+    this.paused = false;
 
     this.spawnTierEnemies();
     this.updateLightingForTier();
@@ -466,9 +492,24 @@ export class Game {
     if (!this.running) return;
 
     const dt = Math.min(this.clock.getDelta(), 0.05);
-    this.elapsed += dt;
 
+    // Always poll gamepad so pause toggle works even while paused
     this.controls.pollGamepad(dt);
+
+    // Pause toggle (Esc or gamepad Share). Blocked during win animation.
+    if (this.controls.consumePauseToggle() && !this.gameWon) {
+      if (this.paused) this._resume();
+      else this._pause();
+    }
+
+    // When paused: render the frozen frame but skip all game logic
+    if (this.paused) {
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(() => this.loop());
+      return;
+    }
+
+    this.elapsed += dt;
 
     // Sync disco lights to the music beat
     const beatPhase = this.audio.getBeatPhase ? this.audio.getBeatPhase() : null;

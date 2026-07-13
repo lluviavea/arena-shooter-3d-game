@@ -20,6 +20,8 @@ export class Controls {
     this.moveX = 0;
     this.moveY = 0;
     this._prevMenuPressed = false;
+    this._prevPausePressed = false;
+    this._pauseToggle = false;
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
@@ -89,6 +91,13 @@ export class Controls {
     // R2 trigger -> shoot (authoritative while gamepad is active)
     const r2 = gp.buttons[7];
     this.keys.shoot = !!(r2 && r2.pressed);
+
+    // Share/Create button (8) -> pause toggle (edge-detected)
+    const share = gp.buttons[8]?.pressed ?? false;
+    if (share && !this._prevPausePressed) {
+      this._pauseToggle = true;
+    }
+    this._prevPausePressed = share;
   }
 
   // Edge-detected menu trigger: Cross or Options, fires once per press
@@ -106,6 +115,14 @@ export class Controls {
     const justPressed = pressed && !this._prevMenuPressed;
     this._prevMenuPressed = pressed;
     return justPressed;
+  }
+
+  // Edge-detected pause toggle: Esc key or gamepad Share/Create button (8).
+  // Fires once per press. The game loop calls this every frame.
+  consumePauseToggle() {
+    const toggled = this._pauseToggle;
+    this._pauseToggle = false;
+    return toggled;
   }
 
   vibrate(
@@ -132,6 +149,7 @@ export class Controls {
     const map = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", Space: "shoot" };
     const key = map[e.code];
     if (key) this.keys[key] = true;
+    if (e.code === "Escape") this._pauseToggle = true;
   }
 
   _onKeyUp(e) {
@@ -147,9 +165,13 @@ export class Controls {
   }
 
   _onMouseDown(e) {
-    if (this.locked && e.button === 0) {
-      this.keys.shoot = true;
+    if (e.button !== 0) return;
+    if (!this.locked) {
+      // Re-engage pointer lock if it was lost (e.g. after Esc-to-resume)
+      this.canvas.requestPointerLock();
+      return;
     }
+    this.keys.shoot = true;
   }
 
   _onMouseUp(e) {

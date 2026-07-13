@@ -28,6 +28,17 @@ import {
   BOSS_CLOSE_RANGE,
   BOSS_SPREAD_PELLETS,
   BOSS_SPREAD_ANGLE,
+  BOSS_ENRAGE_HP_THRESHOLD,
+  BOSS_ENRAGE_SPEED_MULT,
+  BOSS_ENRAGE_FIRE_MULT,
+  BOSS_ENRAGE_SPREAD_PELLETS,
+  BOSS_ENRAGE_SPREAD_ANGLE,
+  BOSS_ENRAGE_LEAD_FACTOR,
+  BOSS_LEAD_FACTOR,
+  BOSS_STRAFE_INTERVAL,
+  BOSS_STRAFE_SPEED,
+  BOSS_ENRAGE_STRAFE_INTERVAL,
+  BULLET_SPEED,
 } from "./constants.js";
 import { forwardVector, rightVector, resolveObstacleCollision, clampToArena } from "./world.js";
 import { hasLineOfSight, playerHitscan } from "./bullets.js";
@@ -322,8 +333,8 @@ export class Enemy {
   }
 }
 
-// Tier-6 boss — the Grand Finale. A big, high-HP target that fires a
-// 3-pellet horizontal spread, forcing the player to keep moving.
+// Tier-6 boss — the Grand Finale. BRUTAL AI: predictive aiming, strafing,
+// enrage phase at 50% HP, and last-known-position pursuit.
 export class Boss extends Enemy {
   constructor(mesh, tier = 6) {
     super(mesh, tier);
@@ -331,10 +342,28 @@ export class Boss extends Enemy {
     this.hitRadius = BOSS_RADIUS;
     this.hitHeight = BOSS_HIT_HEIGHT;
     this.hitYMax = BOSS_HIT_Y_MAX;
+
+    // Player velocity tracking for predictive aiming
+    this._lastPlayerX = 0;
+    this._lastPlayerZ = 12;
+    this._playerVx = 0;
+    this._playerVz = 0;
+
+    // Strafing state
+    this.strafeDir = Math.random() < 0.5 ? -1 : 1;
+    this.strafeTimer = BOSS_STRAFE_INTERVAL;
+
+    // Last-known-position pursuit (null = never seen the player)
+    this._lastKnownX = null;
+    this._lastKnownZ = null;
+  }
+
+  get isEnraged() {
+    return this.health <= BOSS_MAX_HEALTH * BOSS_ENRAGE_HP_THRESHOLD;
   }
 
   get scaledStats() {
-    return {
+    const base = {
       maxHealth: BOSS_MAX_HEALTH,
       moveSpeed: BOSS_MOVE_SPEED,
       fireCooldown: BOSS_FIRE_COOLDOWN,
@@ -343,26 +372,191 @@ export class Boss extends Enemy {
       fireRange: BOSS_FIRE_RANGE,
       closeRange: BOSS_CLOSE_RANGE,
     };
+    if (this.isEnraged) {
+      return {
+        ...base,
+        moveSpeed: base.moveSpeed * BOSS_ENRAGE_SPEED_MULT,
+        fireCooldown: base.fireCooldown * BOSS_ENRAGE_FIRE_MULT,
+      };
+    }
+    return base;
   }
 
-  // Fire a fan of BOSS_SPREAD_PELLETS bullets around the aim direction.
+  // Predictive aim: fire where the player is GOING, not where they are.
+  // Lead factor scales from 0.8 (normal) to 0.95 (enraged, near-perfect).
+  _predictPlayerPosition(muzzleWorld) {
+    const dist = Math.hypot(this._lastPlayerX - muzzleWorld.x, this._lastPlayerZ - muzzleWorld.z);
+    const leadFactor = this.isEnraged ? BOSS_ENRAGE_LEAD_FACTOR : BOSS_LEAD_FACTOR;
+    const leadTime = (dist / BULLET_SPEED) * leadFactor;
+    return {
+      x: this._lastPlayerX + this._playerVx * leadTime,
+      z: this._lastPlayerZ + this._playerVz * leadTime,
+    };
+  }
+
+  // Fire a fan of pellets around the aim direction. Pellet count and spread
+  // angle increase when enraged. Uses predictive aiming.
   _fire(stats, player, bulletManager) {
     const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
     const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
     muzzleWorld.y = BOSS_HIT_HEIGHT;
 
+    const target = this._predictPlayerPosition(muzzleWorld);
+
     const base = new THREE.Vector3(
-      player.x - muzzleWorld.x,
+      target.x - muzzleWorld.x,
       (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
-      player.z - muzzleWorld.z,
+      target.z - muzzleWorld.z,
     );
 
+    const pellets = this.isEnraged ? BOSS_ENRAGE_SPREAD_PELLETS : BOSS_SPREAD_PELLETS;
+    const spreadAngle = this.isEnraged ? BOSS_ENRAGE_SPREAD_ANGLE : BOSS_SPREAD_ANGLE;
+
     const yAxis = new THREE.Vector3(0, 1, 0);
-    const half = (BOSS_SPREAD_PELLETS - 1) / 2;
-    for (let i = 0; i < BOSS_SPREAD_PELLETS; i++) {
-      const offset = (i - half) * BOSS_SPREAD_ANGLE;
+    const half = (pellets - 1) / 2;
+    for (let i = 0; i < pellets; i++) {
+      const offset = (i - half) * spreadAngle;
       const dir = base.clone().applyAxisAngle(yAxis, offset);
       bulletManager.spawn(muzzleWorld, dir, "enemy", stats.damage, this);
     }
+  }
+
+  update(dt, world, player, bulletManager) {
+    const stats = this.scaledStats;
+
+    // Track player velocity for predictive aiming (per-second)
+    if (dt > 0) {
+      this._playerVx = (player.x - this._lastPlayerX) / dt;
+      this._playerVz = (player.z - this._lastPlayerZ) / dt;
+    }
+    this._lastPlayerX = player.x;
+    this._lastPlayerZ = player.z;
+
+    const playerPos = { x: player.x, z: player.z };
+    const enemyPos = { x: this.x, z: this.z };
+    const dist = Math.hypot(player.x - this.x, player.z - this.z);
+    const canSee = hasLineOfSight(enemyPos, playerPos, world.obstacles);
+
+    this.isWalking = false;
+
+    if (canSee && dist < stats.aggroRange) {
+      // Remember where the player is
+      this._lastKnownX = player.x;
+      this._lastKnownZ = player.z;
+
+      const dx = player.x - this.x;
+      const dz = player.z - this.z;
+      this.rotationY = Math.atan2(dx, dz);
+
+      if (dist > stats.closeRange) {
+        // Approach the player
+        const moveX = Math.sin(this.rotationY) * stats.moveSpeed * dt;
+        const moveZ = Math.cos(this.rotationY) * stats.moveSpeed * dt;
+        const resolved = resolveObstacleCollision(
+          this.x + moveX,
+          this.z + moveZ,
+          world.obstacles,
+          world.half,
+        );
+        this.x = resolved.x;
+        this.z = resolved.z;
+        this.isWalking = true;
+      } else {
+        // Strafe side-to-side: perpendicular to the player direction.
+        // This makes the boss a harder target to track and hit.
+        const strafeInterval = this.isEnraged
+          ? BOSS_ENRAGE_STRAFE_INTERVAL
+          : BOSS_STRAFE_INTERVAL;
+        this.strafeTimer -= dt;
+        if (this.strafeTimer <= 0) {
+          this.strafeTimer = strafeInterval;
+          this.strafeDir *= -1;
+        }
+
+        const strafeSpeed = stats.moveSpeed * BOSS_STRAFE_SPEED;
+        const perpX = Math.cos(this.rotationY) * this.strafeDir;
+        const perpZ = -Math.sin(this.rotationY) * this.strafeDir;
+        const moveX = perpX * strafeSpeed * dt;
+        const moveZ = perpZ * strafeSpeed * dt;
+        const resolved = resolveObstacleCollision(
+          this.x + moveX,
+          this.z + moveZ,
+          world.obstacles,
+          world.half,
+        );
+        this.x = resolved.x;
+        this.z = resolved.z;
+        this.isWalking = true;
+      }
+
+      // Fire at the player (with predictive aim via _fire override)
+      this.fireCooldown -= dt;
+      if (this.fireCooldown <= 0 && dist < stats.fireRange) {
+        this.fireCooldown = stats.fireCooldown + Math.random() * 0.15;
+        this._fire(stats, player, bulletManager);
+        this.muzzleFlashTimer = 0.08;
+      }
+    } else {
+      // Lost line of sight — move toward the player's last known position
+      // instead of wandering randomly. No more camping behind walls.
+      if (this._lastKnownX !== null) {
+        const ldx = this._lastKnownX - this.x;
+        const ldz = this._lastKnownZ - this.z;
+        const ldist = Math.hypot(ldx, ldz);
+
+        if (ldist > 1.5) {
+          this.rotationY = Math.atan2(ldx, ldz);
+          const moveX = Math.sin(this.rotationY) * stats.moveSpeed * dt;
+          const moveZ = Math.cos(this.rotationY) * stats.moveSpeed * dt;
+          const resolved = resolveObstacleCollision(
+            this.x + moveX,
+            this.z + moveZ,
+            world.obstacles,
+            world.half,
+          );
+          this.x = resolved.x;
+          this.z = resolved.z;
+          this.isWalking = true;
+        } else {
+          // Reached last known position — player isn't here, wander
+          this._wander(dt, stats, world);
+        }
+      } else {
+        // Never seen the player — wander
+        this._wander(dt, stats, world);
+      }
+    }
+
+    this.time += dt;
+
+    if (this.muzzleFlashTimer > 0) {
+      this.muzzleFlashTimer -= dt;
+      if (this.muzzle) this.muzzle.material.emissiveIntensity = 3.0;
+    } else if (this.muzzle) {
+      this.muzzle.material.emissiveIntensity = 0.8;
+    }
+
+    this.syncMesh();
+  }
+
+  // Random wander used when the boss has no known player position to pursue.
+  _wander(dt, stats, world) {
+    this.wanderTimer -= dt;
+    if (this.wanderTimer <= 0) {
+      this.wanderTimer = 1.5 + Math.random() * 2;
+      this.wanderAngle = Math.random() * Math.PI * 2;
+    }
+    this.rotationY = this.wanderAngle;
+    const moveX = Math.sin(this.rotationY) * (stats.moveSpeed * 0.5) * dt;
+    const moveZ = Math.cos(this.rotationY) * (stats.moveSpeed * 0.5) * dt;
+    const resolved = resolveObstacleCollision(
+      this.x + moveX,
+      this.z + moveZ,
+      world.obstacles,
+      world.half,
+    );
+    this.x = resolved.x;
+    this.z = resolved.z;
+    this.isWalking = true;
   }
 }
