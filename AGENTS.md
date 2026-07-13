@@ -1,6 +1,6 @@
 # Instant Arena Shooter
 
-Browser 3D FPS: WASD + mouse look, Space/click to shoot, 5 difficulty tiers (1-5 enemies). Vite + Three.js. PS5 DualSense gamepad supported via the standard Gamepad API.
+Browser 3D FPS: WASD + mouse look, Space/click to shoot, 5 difficulty tiers (1-5 enemies) + a tier-6 Grand Finale boss. Vite + Three.js. PS5 DualSense gamepad supported via the standard Gamepad API.
 
 ## Commands
 

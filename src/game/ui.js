@@ -13,11 +13,22 @@ export class UI {
     this.tierProgress = document.getElementById("tier-progress");
     this.startBtn = document.getElementById("start-btn");
     this.controllerStatus = document.getElementById("controller-status");
+    this.enemyLabel = document.getElementById("enemy-label");
   }
 
   setControllerConnected(connected) {
     if (!this.controllerStatus) return;
     this.controllerStatus.classList.toggle("hidden", !connected);
+  }
+
+  // Swap the enemy panel label/bar to a boss style during tier 6.
+  setBossMode(isBoss) {
+    if (this.enemyLabel) {
+      this.enemyLabel.textContent = isBoss ? "BOSS" : "ENEMY";
+    }
+    if (this.enemyHealth) {
+      this.enemyHealth.classList.toggle("boss", isBoss);
+    }
   }
 
   showHUD() {
@@ -37,7 +48,7 @@ export class UI {
 
   updateDifficulty(tier) {
     const name = TIER_NAMES[tier - 1] || `Tier ${tier}`;
-    this.difficultyDisplay.textContent = `${name} (${tier}/5)`;
+    this.difficultyDisplay.textContent = `${name} (${tier}/6)`;
   }
 
   updateKills(count) {
@@ -50,9 +61,10 @@ export class UI {
     }
   }
 
-  updateTierProgress(tierKills) {
+  updateTierProgress(tierKills, tier) {
     if (this.tierProgress) {
-      this.tierProgress.textContent = `Tier kills: ${tierKills}/${KILLS_PER_TIER}`;
+      const goal = KILLS_PER_TIER[tier - 1] ?? KILLS_PER_TIER[0];
+      this.tierProgress.textContent = `Tier kills: ${tierKills}/${goal}`;
     }
   }
 
@@ -78,8 +90,8 @@ export class UI {
     this.message.innerHTML = `
       <div class="win-content">
         <h2 class="win-title">VICTORY</h2>
-        <p class="win-subtitle">All 5 tiers conquered!</p>
-        <p class="win-stats">You survived the arena</p>
+        <p class="win-subtitle">All 6 tiers conquered!</p>
+        <p class="win-stats">You defeated the Grand Finale</p>
         <button id="restart-btn">Play Again</button>
       </div>
     `;

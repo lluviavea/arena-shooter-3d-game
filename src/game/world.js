@@ -35,6 +35,8 @@ const TIER_LIGHTING = [
   { bg: 0x280418, fog: 0x5a0a2a, ambient: 0xc04060, ambientIntensity: 0.6, beat: 1.45 },
   // Tier 5 - Megamix: electric purple/pink max
   { bg: 0x300628, fog: 0x6a0a4a, ambient: 0xd040a0, ambientIntensity: 0.65, beat: 1.6 },
+  // Tier 6 - Grand Finale (boss): crimson/black, hottest
+  { bg: 0x3a0008, fog: 0x6a0010, ambient: 0xff2040, ambientIntensity: 0.7, beat: 1.8 },
 ];
 
 // Four orbiting disco light colors (kept constant across tiers)

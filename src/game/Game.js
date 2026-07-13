@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { createArena, setupLighting, updateLighting, updateDisco, pickSpawnPosition } from "./world.js";
-import { createEnemyMesh, createGunModel, createHealthPickupMesh } from "./models.js";
+import { createEnemyMesh, createGunModel, createHealthPickupMesh, createBossMesh } from "./models.js";
 import { Controls } from "./controls.js";
 import { UI } from "./ui.js";
 import { BulletManager } from "./bullets.js";
 import { AudioManager } from "./audio.js";
-import { Player, Enemy } from "./entities.js";
+import { Player, Enemy, Boss } from "./entities.js";
 import {
   HEALTH_PICKUP_AMOUNT,
   HEALTH_PICKUP_RADIUS,
@@ -15,6 +15,9 @@ import {
   ENEMY_MAX_HEALTH,
   MAX_TIER,
   ENEMIES_PER_TIER,
+  BOSS_ADD_CAP,
+  BOSS_ADD_INTERVAL,
+  BOSS_ADD_TIER,
 } from "./constants.js";
 
 export class Game {
@@ -178,6 +181,7 @@ export class Game {
     this.tierKills = 0;
     this.difficultyTier = 1;
     this.respawnTimer = 0;
+    this.addTimer = 0;
     this.gameWon = false;
     this.winAnimTime = 0;
     this.elapsed = 0;
@@ -191,6 +195,17 @@ export class Game {
   }
 
   spawnTierEnemies() {
+    if (this.difficultyTier === 6) {
+      const mesh = createBossMesh();
+      this.scene.add(mesh);
+      const boss = new Boss(mesh, 6);
+      const { x, z } = pickSpawnPosition(this.player, this.world);
+      boss.respawn(6, x, z);
+      this.enemies.push(boss);
+      this.addTimer = BOSS_ADD_INTERVAL;
+      return;
+    }
+
     const count = ENEMIES_PER_TIER[this.difficultyTier - 1] || 1;
 
     for (let i = 0; i < count; i++) {
@@ -273,7 +288,12 @@ export class Game {
     this.ui.updatePlayerHealth(this.player.health / PLAYER_MAX_HEALTH);
 
     const aliveEnemies = this.enemies.filter((e) => e.isAlive);
-    if (aliveEnemies.length > 0) {
+    const boss = this.enemies.find((e) => e.isBoss);
+
+    if (boss && boss.isAlive) {
+      // Boss tier: the enemy bar tracks the boss specifically.
+      this.ui.updateEnemyHealth(boss.health / boss.scaledStats.maxHealth);
+    } else if (aliveEnemies.length > 0) {
       const maxHp = aliveEnemies[0].scaledStats.maxHealth;
       const avgHealth = aliveEnemies.reduce((sum, e) => sum + e.health, 0) / aliveEnemies.length;
       this.ui.updateEnemyHealth(avgHealth / maxHp);
@@ -283,13 +303,24 @@ export class Game {
 
     this.ui.updateDifficulty(this.difficultyTier);
     this.ui.updateKills(this.kills);
-    this.ui.updateEnemyCount(aliveEnemies.length, ENEMIES_PER_TIER[this.difficultyTier - 1]);
-    this.ui.updateTierProgress(this.tierKills);
+
+    if (this.difficultyTier === 6 && boss) {
+      this.ui.updateEnemyCount(boss.isAlive ? 1 : 0, 1);
+    } else {
+      this.ui.updateEnemyCount(aliveEnemies.length, ENEMIES_PER_TIER[this.difficultyTier - 1]);
+    }
+
+    this.ui.updateTierProgress(this.tierKills, this.difficultyTier);
+    this.ui.setBossMode(this.difficultyTier === 6);
   }
 
   onEnemyKilled(killedEnemy) {
     this.kills++;
-    this.tierKills++;
+
+    // Adds (boss minions) don't count toward tier progress.
+    if (!killedEnemy.isAdd) {
+      this.tierKills++;
+    }
 
     // Remove the dead enemy from the scene
     this.scene.remove(killedEnemy.mesh);
@@ -297,9 +328,13 @@ export class Game {
 
     this.spawnHealthPickup(killedEnemy.x, killedEnemy.z);
 
-    // Check if tier is cleared
-    if (this.tierKills >= KILLS_PER_TIER) {
+    const tierGoal = KILLS_PER_TIER[this.difficultyTier - 1];
+
+    // Check if tier is cleared (only real kills count, not adds)
+    if (!killedEnemy.isAdd && this.tierKills >= tierGoal) {
       if (this.difficultyTier >= MAX_TIER) {
+        // Boss down — clear any remaining adds, then win.
+        this.clearAdds();
         this.updateHud();
         this.winGame();
         return;
@@ -308,6 +343,7 @@ export class Game {
       // Advance to next tier
       this.difficultyTier++;
       this.tierKills = 0;
+      this.addTimer = 0;
       this.audio.startMusic(this.difficultyTier);
       this.updateLightingForTier();
 
@@ -319,12 +355,46 @@ export class Game {
 
       // Spawn new tier enemies after a short delay
       this.respawnTimer = 1.5;
-    } else {
-      // Spawn a replacement enemy for the same tier
+    } else if (!killedEnemy.isAdd) {
+      // Spawn a replacement enemy for the same tier (tiers 1-5)
       this.respawnTimer = ENEMY_RESPAWN_DELAY;
     }
+    // Adds: no replacement — updateBossAdds spawns them on a timer.
 
     this.updateHud();
+  }
+
+  // Remove all boss-minion adds from the scene (used on boss death).
+  clearAdds() {
+    const adds = this.enemies.filter((e) => e.isAdd);
+    for (const add of adds) {
+      this.scene.remove(add.mesh);
+    }
+    this.enemies = this.enemies.filter((e) => !e.isAdd);
+  }
+
+  // During the boss tier, spawn up to BOSS_ADD_CAP tier-3 adds on a timer
+  // to harass the player. Adds don't count toward the win.
+  updateBossAdds(dt) {
+    if (this.difficultyTier !== 6) return;
+    const boss = this.enemies.find((e) => e.isBoss);
+    if (!boss || !boss.isAlive) return;
+
+    const addCount = this.enemies.filter((e) => e.isAdd).length;
+    if (addCount >= BOSS_ADD_CAP) return;
+
+    this.addTimer -= dt;
+    if (this.addTimer <= 0) {
+      this.addTimer = BOSS_ADD_INTERVAL;
+      const mesh = createEnemyMesh(BOSS_ADD_TIER);
+      this.scene.add(mesh);
+      const add = new Enemy(mesh, BOSS_ADD_TIER);
+      add.isAdd = true;
+      const { x, z } = pickSpawnPosition(this.player, this.world);
+      add.respawn(BOSS_ADD_TIER, x, z);
+      this.enemies.push(add);
+      this.updateHud();
+    }
   }
 
   spawnHealthPickup(x, z) {
@@ -451,19 +521,36 @@ export class Game {
       }
     }
 
-    // Respawn logic
-    if (this.enemies.length < (ENEMIES_PER_TIER[this.difficultyTier - 1] || 1)) {
+    // Respawn logic: maintain the tier's enemy count (tiers 1-5) or spawn the
+    // boss after the inter-tier delay (tier 6). Adds spawn via updateBossAdds.
+    // The gameWon guard prevents a stray spawn in the frame the boss dies.
+    if (
+      !this.gameWon &&
+      this.enemies.length < (ENEMIES_PER_TIER[this.difficultyTier - 1] || 1)
+    ) {
       this.respawnTimer -= dt;
       if (this.respawnTimer <= 0) {
-        const mesh = createEnemyMesh(this.difficultyTier);
-        this.scene.add(mesh);
-        const enemy = new Enemy(mesh, this.difficultyTier);
-        const { x, z } = pickSpawnPosition(this.player, this.world);
-        enemy.respawn(this.difficultyTier, x, z);
-        this.enemies.push(enemy);
+        if (this.difficultyTier === 6) {
+          const mesh = createBossMesh();
+          this.scene.add(mesh);
+          const boss = new Boss(mesh, 6);
+          const { x, z } = pickSpawnPosition(this.player, this.world);
+          boss.respawn(6, x, z);
+          this.enemies.push(boss);
+          this.addTimer = BOSS_ADD_INTERVAL;
+        } else {
+          const mesh = createEnemyMesh(this.difficultyTier);
+          this.scene.add(mesh);
+          const enemy = new Enemy(mesh, this.difficultyTier);
+          const { x, z } = pickSpawnPosition(this.player, this.world);
+          enemy.respawn(this.difficultyTier, x, z);
+          this.enemies.push(enemy);
+        }
         this.updateHud();
       }
     }
+
+    this.updateBossAdds(dt);
 
     this.bulletManager.update(dt, {
       obstacles: this.world.obstacles,

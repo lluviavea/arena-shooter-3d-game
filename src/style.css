@@ -85,6 +85,11 @@ body {
   background: linear-gradient(90deg, #ef4444, #f87171);
 }
 
+.bar-fill.enemy.boss {
+  background: linear-gradient(90deg, #ffd700, #ff0040);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+
 #crosshair {
   position: absolute;
   top: 50%;
@@ -386,6 +391,13 @@ kbd {
   color: #ff6ec7;
   border: 1px solid rgba(255, 110, 199, 0.6);
   box-shadow: 0 0 10px rgba(255, 110, 199, 0.35);
+}
+
+.tier-6 {
+  background: rgba(255, 215, 0, 0.18);
+  color: #ffd700;
+  border: 1px solid rgba(255, 0, 64, 0.7);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
 }
 
 #start-btn {

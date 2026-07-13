@@ -16,6 +16,18 @@ import {
   PLAYER_HITSCAN_RANGE,
   PLAYER_TURN_SPEED,
   DIFFICULTY_SCALE_PER_TIER,
+  BOSS_MAX_HEALTH,
+  BOSS_DAMAGE,
+  BOSS_FIRE_COOLDOWN,
+  BOSS_MOVE_SPEED,
+  BOSS_RADIUS,
+  BOSS_HIT_HEIGHT,
+  BOSS_HIT_Y_MAX,
+  BOSS_AGGRO_RANGE,
+  BOSS_FIRE_RANGE,
+  BOSS_CLOSE_RANGE,
+  BOSS_SPREAD_PELLETS,
+  BOSS_SPREAD_ANGLE,
 } from "./constants.js";
 import { forwardVector, rightVector, resolveObstacleCollision, clampToArena } from "./world.js";
 import { hasLineOfSight, playerHitscan } from "./bullets.js";
@@ -135,6 +147,13 @@ export class Enemy {
     this.time = 0;
     this.isWalking = false;
 
+    // Hit-box (overridden by Boss for a bigger/taller target)
+    this.hitRadius = ENEMY_RADIUS;
+    this.hitHeight = 1.35;
+    this.hitYMax = 2.2;
+    this.isBoss = false;
+    this.isAdd = false;
+
     const { gunPivot } = mesh.userData;
     this.gunPivot = gunPivot;
     this.muzzle = gunPivot.children.find((c) => c.geometry?.parameters?.radiusTop === 0.09);
@@ -213,6 +232,21 @@ export class Enemy {
     headPivot.rotation.z = Math.sin(this.time * 3) * 0.015;
   }
 
+  // Spawn a single projectile toward the player. Overridden by Boss for a
+  // multi-pellet spread.
+  _fire(stats, player, bulletManager) {
+    const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
+    const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
+    muzzleWorld.y = 1.57;
+
+    const direction = new THREE.Vector3(
+      player.x - muzzleWorld.x,
+      (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
+      player.z - muzzleWorld.z,
+    );
+    bulletManager.spawn(muzzleWorld, direction, "enemy", stats.damage, this);
+  }
+
   update(dt, world, player, bulletManager) {
     const stats = this.scaledStats;
     const playerPos = { x: player.x, z: player.z };
@@ -244,18 +278,7 @@ export class Enemy {
       this.fireCooldown -= dt;
       if (this.fireCooldown <= 0 && dist < stats.fireRange) {
         this.fireCooldown = stats.fireCooldown + Math.random() * 0.4;
-
-        const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
-        const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
-        muzzleWorld.y = 1.57;
-
-        const direction = new THREE.Vector3(
-          player.x - muzzleWorld.x,
-          (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
-          player.z - muzzleWorld.z,
-        );
-        bulletManager.spawn(muzzleWorld, direction, "enemy", stats.damage, this);
-
+        this._fire(stats, player, bulletManager);
         this.muzzleFlashTimer = 0.08;
       }
     } else {
@@ -296,5 +319,50 @@ export class Enemy {
 
   get isAlive() {
     return this.health > 0;
+  }
+}
+
+// Tier-6 boss — the Grand Finale. A big, high-HP target that fires a
+// 3-pellet horizontal spread, forcing the player to keep moving.
+export class Boss extends Enemy {
+  constructor(mesh, tier = 6) {
+    super(mesh, tier);
+    this.isBoss = true;
+    this.hitRadius = BOSS_RADIUS;
+    this.hitHeight = BOSS_HIT_HEIGHT;
+    this.hitYMax = BOSS_HIT_Y_MAX;
+  }
+
+  get scaledStats() {
+    return {
+      maxHealth: BOSS_MAX_HEALTH,
+      moveSpeed: BOSS_MOVE_SPEED,
+      fireCooldown: BOSS_FIRE_COOLDOWN,
+      damage: BOSS_DAMAGE,
+      aggroRange: BOSS_AGGRO_RANGE,
+      fireRange: BOSS_FIRE_RANGE,
+      closeRange: BOSS_CLOSE_RANGE,
+    };
+  }
+
+  // Fire a fan of BOSS_SPREAD_PELLETS bullets around the aim direction.
+  _fire(stats, player, bulletManager) {
+    const muzzleLocal = new THREE.Vector3(0, 0.02, -1.2);
+    const muzzleWorld = muzzleLocal.clone().applyMatrix4(this.gunPivot.matrixWorld);
+    muzzleWorld.y = BOSS_HIT_HEIGHT;
+
+    const base = new THREE.Vector3(
+      player.x - muzzleWorld.x,
+      (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
+      player.z - muzzleWorld.z,
+    );
+
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const half = (BOSS_SPREAD_PELLETS - 1) / 2;
+    for (let i = 0; i < BOSS_SPREAD_PELLETS; i++) {
+      const offset = (i - half) * BOSS_SPREAD_ANGLE;
+      const dir = base.clone().applyAxisAngle(yAxis, offset);
+      bulletManager.spawn(muzzleWorld, dir, "enemy", stats.damage, this);
+    }
   }
 }

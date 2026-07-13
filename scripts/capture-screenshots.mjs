@@ -8,7 +8,7 @@ const W = 1600;
 const H = 900;
 const SCALE = 2;
 
-const TIER_NAMES = ["Funk", "Groove", "Neon", "Fever", "Megamix"];
+const TIER_NAMES = ["Funk", "Groove", "Neon", "Fever", "Megamix", "Grand Finale"];
 
 const consoleErrors = [];
 const pageErrors = [];
@@ -31,7 +31,7 @@ async function verifyHud(page, tier) {
   const enemies = await page.evaluate(
     () => document.getElementById("enemy-count").textContent,
   );
-  const expected = `${TIER_NAMES[tier - 1]} (${tier}/5)`;
+  const expected = `${TIER_NAMES[tier - 1]} (${tier}/6)`;
   const ok = difficulty === expected;
   console.log(`   HUD: difficulty="${difficulty}" enemies="${enemies}" ${ok ? "OK" : "MISMATCH"}`);
   return ok;
@@ -83,8 +83,8 @@ async function main() {
   });
   await wait(500);
 
-  // 2..6. Tiers 1..5
-  for (let t = 1; t <= 5; t++) {
+  // 2..6. Tiers 1..6
+  for (let t = 1; t <= 6; t++) {
     const name = `tier-${t}-${TIER_NAMES[t - 1].toLowerCase()}`;
     console.log(`capture: ${name}`);
     await page.evaluate((tier) => {
@@ -122,14 +122,14 @@ async function main() {
   await wait(500);
   await shoot(page, "death");
 
-  // 8. Victory (reset to a clean tier-5 scene, run the win flow)
+  // 8. Victory (reset to a clean tier-6 boss scene, run the win flow)
   console.log("capture: victory");
   await page.evaluate(() => {
     const g = window.__game;
     g.reset();
     for (const e of g.enemies) g.scene.remove(e.mesh);
     g.enemies = [];
-    g.difficultyTier = 5;
+    g.difficultyTier = 6;
     g.spawnTierEnemies();
     g.updateLightingForTier();
     g.updateHud();

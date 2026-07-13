@@ -46,6 +46,15 @@ const TIER_COLORS = [
     gun: 0xff0040,
     eyeGlow: 0xfff200,
   },
+  // Tier 6 - Grand Finale (boss): crimson + gold
+  {
+    body: 0x3a0008,
+    accent: 0xffd700,
+    helmet: 0x1a0004,
+    glow: 0xff0040,
+    gun: 0xffd700,
+    eyeGlow: 0xffd700,
+  },
 ];
 
 function tierColor(tier) {
@@ -256,4 +265,37 @@ export function createHealthPickupMesh() {
 
   group.userData = { core, glow };
   return group;
+}
+
+// Tier-6 boss mesh: a scaled-up tier-6 enemy with a gold crown and chest
+// core so it reads as a boss. Reuses createEnemyMesh to preserve the
+// userData contract (headPivot/torso/gunPivot) that Enemy.syncMesh needs.
+export function createBossMesh() {
+  const boss = createEnemyMesh(6);
+  boss.scale.setScalar(1.6);
+
+  const gold = new THREE.MeshStandardMaterial({
+    color: 0xffd700,
+    emissive: 0xffd700,
+    emissiveIntensity: 2.2,
+    roughness: 0.2,
+    metalness: 0.6,
+  });
+
+  // Crown spikes on the head
+  const { headPivot } = boss.userData;
+  if (headPivot) {
+    for (let i = -1; i <= 1; i++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.45, 6), gold);
+      spike.position.set(i * 0.22, 0.55, 0);
+      headPivot.add(spike);
+    }
+  }
+
+  // Glowing chest core
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), gold);
+  core.position.set(0, 1.5, 0.34);
+  boss.add(core);
+
+  return boss;
 }

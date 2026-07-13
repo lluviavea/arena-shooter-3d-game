@@ -68,12 +68,14 @@ function raycastHorizontalBox(origin, direction, box, maxDist) {
 }
 
 export function playerHitscan(origin, direction, enemy, obstacles) {
-  _enemyCenter.set(enemy.x, 1.35, enemy.z);
+  const hitHeight = enemy.hitHeight ?? 1.35;
+  const hitRadius = (enemy.hitRadius ?? ENEMY_RADIUS) + 0.15;
+  _enemyCenter.set(enemy.x, hitHeight, enemy.z);
   const enemyHitDist = raycastSphere(
     origin,
     direction,
     _enemyCenter,
-    ENEMY_RADIUS + 0.15,
+    hitRadius,
     PLAYER_HITSCAN_RANGE,
   );
 
@@ -176,7 +178,9 @@ export class BulletManager {
             if (!enemy.isAlive) continue;
             const edx = x - enemy.x;
             const edz = z - enemy.z;
-            if (Math.hypot(edx, edz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
+            const eRadius = enemy.hitRadius ?? ENEMY_RADIUS;
+            const eYMax = enemy.hitYMax ?? 2.2;
+            if (Math.hypot(edx, edz) < eRadius + BULLET_RADIUS && y < eYMax) {
               onEnemyHit(bullet.damage, enemy);
               this.remove(bullet);
               break;
@@ -188,7 +192,9 @@ export class BulletManager {
           if (!enemy.isAlive) continue;
           const dx = x - enemy.x;
           const dz = z - enemy.z;
-          if (Math.hypot(dx, dz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
+          const eRadius = enemy.hitRadius ?? ENEMY_RADIUS;
+          const eYMax = enemy.hitYMax ?? 2.2;
+          if (Math.hypot(dx, dz) < eRadius + BULLET_RADIUS && y < eYMax) {
             onEnemyHit(bullet.damage, enemy);
             this.remove(bullet);
             break;

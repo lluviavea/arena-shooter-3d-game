@@ -156,14 +156,14 @@ export class AudioManager {
     this.currentTier = tier;
     const now = this.ctx.currentTime;
 
-    // Tempo per tier: ~120 BPM rising to ~140 BPM
-    const bpms = [120, 125, 130, 135, 140];
+    // Tempo per tier: ~120 BPM rising to ~150 BPM for the boss
+    const bpms = [120, 125, 130, 135, 140, 150];
     const bpm = bpms[Math.min(tier - 1, bpms.length - 1)];
     const beatLen = 60 / bpm; // seconds per beat
     this.beatLen = beatLen;
 
     // Root notes per tier (A minor-ish groove, rising intensity)
-    const roots = [110.0, 116.54, 130.81, 146.83, 164.81]; // A2, A#2, C3, D3, E3
+    const roots = [110.0, 116.54, 130.81, 146.83, 164.81, 174.61]; // A2..F3
     const root = roots[Math.min(tier - 1, roots.length - 1)];
 
     // --- Sustained pad (synth string layer) ---

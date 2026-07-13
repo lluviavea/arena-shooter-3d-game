@@ -1,6 +1,6 @@
 # Arena Shooter
 
-3D first-person arena shooter in the browser. Conquer 5 difficulty tiers with escalating enemies, a retro 80s disco arena, and a procedural synthwave soundtrack.
+3D first-person arena shooter in the browser. Conquer 5 difficulty tiers with escalating enemies, then face the tier-6 Grand Finale boss — all in a retro 80s disco arena with a procedural synthwave soundtrack.
 
 ![Arena Shooter](screenshots/menu.png)
 
@@ -23,7 +23,10 @@ Each tier shifts the enemy neon palette and the arena lighting, and raises the m
 *Yellow/pink enemies · 135 BPM.*
 
 ![Tier 5 — Megamix](screenshots/tier-5-megamix.png)
-*Hot pink enemies · 140 BPM — the climax.*
+*Hot pink enemies · 140 BPM.*
+
+![Tier 6 — Grand Finale](screenshots/tier-6-grand-finale.png)
+*Crimson + gold boss · 150 BPM — the final duel.*
 
 ### Victory
 
@@ -35,14 +38,15 @@ Each tier shifts the enemy neon palette and the arena lighting, and raises the m
 
 ## Features
 
-- **5 difficulty tiers** with unique names, neon palettes, and tempos
+- **5 difficulty tiers + a Grand Finale boss** with unique names, neon palettes, and tempos
 - **Neon-rainbow enemies** — cyan → magenta → purple → yellow → hot pink as you climb the tiers
-- **Escalating enemy count** — 1 to 5 enemies on screen per tier
+- **Escalating enemy count** — 1 to 5 enemies on screen per tier, then a 1-on-1 boss duel
+- **Boss fight** — a big, high-HP Grand Finale boss that fires a 3-bullet spread and summons minion adds
 - **Retro 80s disco arena** — neon grid floor, mirror disco ball, four orbiting colored lights
 - **Dynamic arena lighting** that shifts with each tier
 - **Procedural synthwave soundtrack** — four-on-the-floor beat with per-tier tempo and key
 - **Gunshot, hit, and pickup sound effects** via Web Audio API
-- **Win condition** — beat all 5 tiers to trigger the victory animation
+- **Win condition** — beat all 6 tiers (defeat the boss) to trigger the victory animation
 - **Health pickups** drop from defeated enemies
 - **WASD + mouse** controls
 
@@ -55,6 +59,7 @@ Each tier shifts the enemy neon palette and the arena lighting, and raises the m
 | 3 | Neon | 3 | Purple | 130 BPM |
 | 4 | Fever | 4 | Yellow | 135 BPM |
 | 5 | Megamix | 5 | Hot pink | 140 BPM |
+| 6 | Grand Finale | 1 boss (+ adds) | Crimson + gold | 150 BPM |
 
 ## Quick start
 
