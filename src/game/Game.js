@@ -64,6 +64,9 @@ export class Game {
     this.winAnimTime = 0;
     this.winParticles = [];
 
+    // Safety-net toast shown only if audio stays suspended (gamepad-only start)
+    this.audioPrompt = null;
+
     this.bindEvents();
     this.onResize();
     this.startMenuPoll();
@@ -72,6 +75,18 @@ export class Game {
   bindEvents() {
     window.addEventListener("resize", () => this.onResize());
     this.ui.startBtn.addEventListener("click", () => this.start());
+
+    // Chrome autoplay policy: AudioContext.resume() only succeeds inside a
+    // real user gesture. Starting via gamepad runs in a requestAnimationFrame
+    // callback (not a gesture), which would leave the context suspended and
+    // silence music + SFX. Proactively unlock on every gesture we can catch.
+    const unlock = () => {
+      this.audio.init();
+      this.audio.resume();
+    };
+    window.addEventListener("gamepadconnected", unlock);
+    window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("pointerdown", unlock, { once: true });
   }
 
   // Lets a PS5 controller start/restart via Cross or Options
@@ -98,6 +113,7 @@ export class Game {
   start() {
     this.audio.init();
     this.audio.resume();
+    this.#ensureAudioUnlocked();
     this.reset();
     this.running = true;
     if (!this.controls.hasGamepad) {
@@ -107,6 +123,42 @@ export class Game {
     this.clock.start();
     this.audio.startMusic(this.difficultyTier);
     this.loop();
+  }
+
+  // If the AudioContext is still suspended after start() (e.g. a gamepad-only
+  // start whose gesture the browser did not accept), show a one-time toast
+  // asking for a click. Once unlocked, it stays unlocked for the session.
+  #ensureAudioUnlocked() {
+    if (!this.audio.ctx || this.audio.ctx.state === "running") return;
+    if (this.audioPrompt) return;
+
+    const el = document.createElement("div");
+    el.className = "audio-prompt";
+    el.textContent = "Click anywhere to enable sound";
+    document.body.appendChild(el);
+    this.audioPrompt = el;
+
+    const onAnyClick = () => {
+      this.audio.resume();
+      this.#hideAudioPrompt();
+      window.removeEventListener("pointerdown", onAnyClick);
+    };
+    window.addEventListener("pointerdown", onAnyClick);
+
+    if (this.audio.ctx) {
+      const onState = () => {
+        if (this.audio.ctx?.state === "running") {
+          this.#hideAudioPrompt();
+          this.audio.ctx.removeEventListener("statechange", onState);
+        }
+      };
+      this.audio.ctx.addEventListener("statechange", onState);
+    }
+  }
+
+  #hideAudioPrompt() {
+    this.audioPrompt?.remove();
+    this.audioPrompt = null;
   }
 
   reset() {
