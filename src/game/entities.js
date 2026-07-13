@@ -246,7 +246,7 @@ export class Enemy {
           (PLAYER_HEIGHT - muzzleWorld.y) * 0.3,
           player.z - muzzleWorld.z,
         );
-        bulletManager.spawn(muzzleWorld, direction, "enemy", stats.damage);
+        bulletManager.spawn(muzzleWorld, direction, "enemy", stats.damage, this);
 
         this.muzzleFlashTimer = 0.08;
       }

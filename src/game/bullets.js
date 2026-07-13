@@ -118,7 +118,7 @@ export class BulletManager {
     });
   }
 
-  spawn(origin, direction, owner, damage) {
+  spawn(origin, direction, owner, damage, source = null) {
     const mesh = new THREE.Mesh(
       this.geo,
       owner === "player" ? this.playerMat : this.enemyMat,
@@ -127,7 +127,7 @@ export class BulletManager {
     this.scene.add(mesh);
 
     const velocity = direction.clone().normalize().multiplyScalar(BULLET_SPEED);
-    this.bullets.push({ mesh, velocity, owner, alive: true, damage: damage || PLAYER_DAMAGE });
+    this.bullets.push({ mesh, velocity, owner, alive: true, damage: damage || PLAYER_DAMAGE, source });
   }
 
   update(dt, context) {
@@ -165,11 +165,23 @@ export class BulletManager {
       if (!bullet.alive) continue;
 
       if (bullet.owner === "enemy") {
-        const dx = x - player.x;
-        const dz = z - player.z;
-        if (Math.hypot(dx, dz) < PLAYER_RADIUS + BULLET_RADIUS && y < PLAYER_RADIUS + 1.6) {
+        const pdx = x - player.x;
+        const pdz = z - player.z;
+        if (Math.hypot(pdx, pdz) < PLAYER_RADIUS + BULLET_RADIUS && y < PLAYER_RADIUS + 1.6) {
           onPlayerHit(bullet.damage);
           this.remove(bullet);
+        } else {
+          for (const enemy of enemies) {
+            if (enemy === bullet.source) continue;
+            if (!enemy.isAlive) continue;
+            const edx = x - enemy.x;
+            const edz = z - enemy.z;
+            if (Math.hypot(edx, edz) < ENEMY_RADIUS + BULLET_RADIUS && y < 2.2) {
+              onEnemyHit(bullet.damage, enemy);
+              this.remove(bullet);
+              break;
+            }
+          }
         }
       } else {
         for (const enemy of enemies) {
