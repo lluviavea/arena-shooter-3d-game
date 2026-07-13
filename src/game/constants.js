@@ -53,6 +53,13 @@ export const NEON_COLORS = {
   pink: 0xff6ec7,
 };
 
+// Gamepad (PS5 DualSense, standard mapping)
+export const GAMEPAD_DEADZONE = 0.15;
+export const GAMEPAD_LOOK_SENSITIVITY = 2.5; // radians/sec at full stick deflection
+export const GAMEPAD_VIBRATION_DAMAGE = 300;
+export const GAMEPAD_VIBRATION_STRONG = 1.0;
+export const GAMEPAD_VIBRATION_WEAK = 0.4;
+
 // Respawn
 export const ENEMY_RESPAWN_DELAY = 2.5;
 

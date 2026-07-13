@@ -66,11 +66,25 @@ export class Game {
 
     this.bindEvents();
     this.onResize();
+    this.startMenuPoll();
   }
 
   bindEvents() {
     window.addEventListener("resize", () => this.onResize());
     this.ui.startBtn.addEventListener("click", () => this.start());
+  }
+
+  // Lets a PS5 controller start/restart via Cross or Options
+  startMenuPoll() {
+    const tick = () => {
+      const menuPressed = this.controls.consumeMenuPress();
+      this.ui.setControllerConnected(this.controls.hasGamepad);
+      if (!this.running && menuPressed) {
+        this.start();
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   onResize() {
@@ -86,7 +100,9 @@ export class Game {
     this.audio.resume();
     this.reset();
     this.running = true;
-    this.controls.requestLock();
+    if (!this.controls.hasGamepad) {
+      this.controls.requestLock();
+    }
     this.ui.showHUD();
     this.clock.start();
     this.audio.startMusic(this.difficultyTier);
@@ -145,7 +161,7 @@ export class Game {
     this.running = false;
     this.audio.stopMusic();
     this.audio.playDeath();
-    document.exitPointerLock();
+    if (document.pointerLockElement) document.exitPointerLock();
     this.ui.showDeathScreen(() => this.start());
   }
 
@@ -158,7 +174,7 @@ export class Game {
     setTimeout(() => {
       this.running = false;
       this.audio.stopMusic();
-      document.exitPointerLock();
+      if (document.pointerLockElement) document.exitPointerLock();
       this.ui.showWinScreen(() => this.start());
     }, 4000);
   }
@@ -330,6 +346,8 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.elapsed += dt;
 
+    this.controls.pollGamepad(dt);
+
     // Sync disco lights to the music beat
     const beatPhase = this.audio.getBeatPhase ? this.audio.getBeatPhase() : null;
     updateDisco(this.lights, this.elapsed, this.difficultyTier, beatPhase);
@@ -402,6 +420,7 @@ export class Game {
       enemies: this.enemies,
       onPlayerHit: (dmg) => {
         this.player.takeDamage(dmg);
+        this.controls.vibrate();
         this.updateHud();
       },
       onEnemyHit: (dmg, enemy) => {

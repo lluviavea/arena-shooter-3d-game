@@ -12,6 +12,12 @@ export class UI {
     this.enemyCountDisplay = document.getElementById("enemy-count");
     this.tierProgress = document.getElementById("tier-progress");
     this.startBtn = document.getElementById("start-btn");
+    this.controllerStatus = document.getElementById("controller-status");
+  }
+
+  setControllerConnected(connected) {
+    if (!this.controllerStatus) return;
+    this.controllerStatus.classList.toggle("hidden", !connected);
   }
 
   showHUD() {

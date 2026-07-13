@@ -46,21 +46,29 @@ export class Player {
     let moveX = 0;
     let moveZ = 0;
 
-    if (controls.keys.w) {
-      moveX += forward.x * PLAYER_MOVE_SPEED * dt;
-      moveZ += forward.z * PLAYER_MOVE_SPEED * dt;
-    }
-    if (controls.keys.s) {
-      moveX -= forward.x * PLAYER_MOVE_SPEED * dt;
-      moveZ -= forward.z * PLAYER_MOVE_SPEED * dt;
-    }
-    if (controls.keys.a) {
-      moveX -= right.x * PLAYER_MOVE_SPEED * dt;
-      moveZ -= right.z * PLAYER_MOVE_SPEED * dt;
-    }
-    if (controls.keys.d) {
-      moveX += right.x * PLAYER_MOVE_SPEED * dt;
-      moveZ += right.z * PLAYER_MOVE_SPEED * dt;
+    if (controls.hasGamepad) {
+      // Analog: stick magnitude scales speed (tilt half = walk half speed)
+      const f = -controls.moveY;
+      const r = controls.moveX;
+      moveX = (forward.x * f + right.x * r) * PLAYER_MOVE_SPEED * dt;
+      moveZ = (forward.z * f + right.z * r) * PLAYER_MOVE_SPEED * dt;
+    } else {
+      if (controls.keys.w) {
+        moveX += forward.x * PLAYER_MOVE_SPEED * dt;
+        moveZ += forward.z * PLAYER_MOVE_SPEED * dt;
+      }
+      if (controls.keys.s) {
+        moveX -= forward.x * PLAYER_MOVE_SPEED * dt;
+        moveZ -= forward.z * PLAYER_MOVE_SPEED * dt;
+      }
+      if (controls.keys.a) {
+        moveX -= right.x * PLAYER_MOVE_SPEED * dt;
+        moveZ -= right.z * PLAYER_MOVE_SPEED * dt;
+      }
+      if (controls.keys.d) {
+        moveX += right.x * PLAYER_MOVE_SPEED * dt;
+        moveZ += right.z * PLAYER_MOVE_SPEED * dt;
+      }
     }
 
     const resolved = resolveObstacleCollision(
