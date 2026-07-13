@@ -92,12 +92,12 @@ export class Controls {
     const r2 = gp.buttons[7];
     this.keys.shoot = !!(r2 && r2.pressed);
 
-    // Share/Create button (8) -> pause toggle (edge-detected)
-    const share = gp.buttons[8]?.pressed ?? false;
-    if (share && !this._prevPausePressed) {
+    // Options button (9) -> pause toggle (edge-detected)
+    const options = gp.buttons[9]?.pressed ?? false;
+    if (options && !this._prevPausePressed) {
       this._pauseToggle = true;
     }
-    this._prevPausePressed = share;
+    this._prevPausePressed = options;
   }
 
   // Edge-detected menu trigger: Cross or Options, fires once per press
@@ -117,7 +117,7 @@ export class Controls {
     return justPressed;
   }
 
-  // Edge-detected pause toggle: Esc key or gamepad Share/Create button (8).
+  // Edge-detected pause toggle: Esc key or gamepad Options button (9).
   // Fires once per press. The game loop calls this every frame.
   consumePauseToggle() {
     const toggled = this._pauseToggle;

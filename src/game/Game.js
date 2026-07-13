@@ -121,8 +121,10 @@ export class Game {
     this.reset();
     this.running = true;
     this.paused = false;
-    // Drain any stale pause toggle from Esc pressed during death/win screens
+    // Drain any stale pause toggle from Esc/Options pressed during death/win screens
     this.controls.consumePauseToggle();
+    // Prevent a held Options button from immediately re-pausing after restart
+    this.controls._prevPausePressed = true;
     if (!this.controls.hasGamepad) {
       this.controls.requestLock();
     }
@@ -496,7 +498,7 @@ export class Game {
     // Always poll gamepad so pause toggle works even while paused
     this.controls.pollGamepad(dt);
 
-    // Pause toggle (Esc or gamepad Share). Blocked during win animation.
+    // Pause toggle (Esc or gamepad Options). Blocked during win animation.
     if (this.controls.consumePauseToggle() && !this.gameWon) {
       if (this.paused) this._resume();
       else this._pause();

@@ -74,7 +74,7 @@ export const BOSS_STRAFE_SPEED = 0.7; // fraction of move speed used for strafin
 export const BOSS_ENRAGE_STRAFE_INTERVAL = 0.9; // faster strafe flips when enraged
 
 // Reinforcements that harass the player during the boss fight
-export const BOSS_ADD_CAP = 4;
+export const BOSS_ADD_CAP = 0;
 export const BOSS_ADD_INTERVAL = 4; // seconds between add spawns
 export const BOSS_ADD_TIER = 3; // adds use tier-3 stats
 
