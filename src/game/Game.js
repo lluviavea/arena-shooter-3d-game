@@ -9,7 +9,6 @@ import { Player, Enemy } from "./entities.js";
 import {
   HEALTH_PICKUP_AMOUNT,
   HEALTH_PICKUP_RADIUS,
-  HEALTH_PICKUP_LIFETIME,
   ENEMY_RESPAWN_DELAY,
   KILLS_PER_TIER,
   PLAYER_MAX_HEALTH,
@@ -264,7 +263,7 @@ export class Game {
     const mesh = createHealthPickupMesh();
     mesh.position.set(x, 0.6, z);
     this.scene.add(mesh);
-    this.healthPickups.push({ mesh, life: HEALTH_PICKUP_LIFETIME });
+    this.healthPickups.push({ mesh, t: 0 });
   }
 
   clearHealthPickups() {
@@ -276,25 +275,19 @@ export class Game {
 
   updateHealthPickups(dt) {
     for (const pickup of this.healthPickups) {
-      pickup.life -= dt;
+      pickup.t += dt;
       pickup.mesh.rotation.y += dt * 2;
 
-      const pulse = 0.9 + Math.sin(pickup.life * 4) * 0.1;
+      const pulse = 0.9 + Math.sin(pickup.t * 4) * 0.1;
       pickup.mesh.scale.setScalar(pulse);
 
       const core = pickup.mesh.userData.core;
       const glow = pickup.mesh.userData.glow;
       if (core) {
-        core.material.opacity = 0.6 + Math.sin(pickup.life * 5) * 0.3;
+        core.material.opacity = 0.6 + Math.sin(pickup.t * 5) * 0.3;
       }
       if (glow) {
-        glow.material.opacity = 0.2 + Math.sin(pickup.life * 3) * 0.1;
-      }
-
-      if (pickup.life <= 0) {
-        this.scene.remove(pickup.mesh);
-        pickup.dead = true;
-        continue;
+        glow.material.opacity = 0.2 + Math.sin(pickup.t * 3) * 0.1;
       }
 
       const dx = this.player.x - pickup.mesh.position.x;

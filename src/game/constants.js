@@ -29,7 +29,6 @@ export const BULLET_RADIUS = 0.12;
 // Health pickups
 export const HEALTH_PICKUP_AMOUNT = 25;
 export const HEALTH_PICKUP_RADIUS = 0.6;
-export const HEALTH_PICKUP_LIFETIME = 8;
 
 // Difficulty system
 export const MAX_TIER = 5;
